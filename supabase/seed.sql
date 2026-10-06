@@ -190,8 +190,8 @@ on conflict (key) do nothing;
 insert into public.contact_numbers (label_ar, label_en, number, is_whatsapp, sort_order)
 select v.label_ar, v.label_en, v.number, v.is_whatsapp, v.sort_order
 from (values
-  ('مبيعات', 'Sales', '+201000000000', true, 1),
-  ('دعم فني', 'Technical support', '+201111111111', false, 2)
+  ('مبيعات', 'Sales', '+201030006425', true, 1),
+  ('دعم فني', 'Technical support', '+201042956387', false, 2)
 ) as v(label_ar, label_en, number, is_whatsapp, sort_order)
 where not exists (select 1 from public.contact_numbers);
 
