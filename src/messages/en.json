@@ -1,19 +1,23 @@
 {
   "meta": {
-    "siteName": "Company Name",
+    "siteName": "Reach",
     "title": "Fire Alarm Systems — Product Showcase",
-    "description": "Showcase of fire alarm systems and accessories: control panels, smoke and heat detectors, sirens, batteries and cables.",
+    "description": "Fire-alarm supply catalog for contractors and consultants in Egypt.",
     "products": {
       "title": "Products",
       "description": "Browse the full fire alarm catalog: control panels, detectors, sirens and accessories, with search and filters."
     },
     "about": {
       "title": "About us",
-      "description": "Learn about our experience supplying and supporting fire alarm systems, our certificates and brands."
+      "description": "Learn about our fire alarm supply activity and the available product and brand information."
     },
     "contact": {
       "title": "Contact",
       "description": "Phone numbers, email, address and working hours — plus direct WhatsApp contact."
+    },
+    "contractors": {
+      "title": "Fire alarm BOQ and quotation request",
+      "description": "Share project drawings or a bill of quantities to request a fire alarm BOQ, quotation and coordinated supply package."
     }
   },
   "nav": {
@@ -21,13 +25,15 @@
     "products": "Products",
     "about": "About",
     "contact": "Contact",
+    "contractors": "Contractors & consultants",
     "menu": "Menu",
     "closeMenu": "Close menu",
     "switchLanguage": "العربية"
   },
   "common": {
     "whatsapp": "WhatsApp",
-    "askWa": "Ask us on WhatsApp",
+    "askWa": "Request a BOQ / quotation",
+    "requestBoq": "Request a BOQ / quotation",
     "browseProducts": "Browse products",
     "viewAll": "View all",
     "loadMore": "Load more",
@@ -37,11 +43,21 @@
     "applyFilters": "Apply",
     "close": "Close",
     "viewProduct": "View {name}",
-    "quote": "Ask for a quote",
+    "quote": "Request a BOQ / quotation",
     "call": "Call",
     "catalog": "Catalog PDF",
     "mapLink": "View on map",
-    "waGreeting": "Hello, I have a question about your fire alarm systems and accessories.",
+    "waGreeting": "Hello, I need help with fire alarm system and accessory supply.",
+    "sourceTag": "Source",
+    "pageHome": "Home",
+    "pageProducts": "Product catalog",
+    "pageCategory": "Product category",
+    "pageProduct": "Product page",
+    "pageContractors": "Contractors and consultants page",
+    "pageHeader": "Site header",
+    "pageFloating": "Floating WhatsApp button",
+    "pageAbout": "About page",
+    "pageContact": "Contact page",
     "skipToContent": "Skip to content",
     "results": "{count, plural, one {# product} other {# products}}"
   },
@@ -67,8 +83,12 @@
     "certificatesTitle": "Certificates & compliance",
     "projectsEyebrow": "Our work",
     "projectsTitle": "Projects we are proud of",
-    "ctaTitle": "Not sure which system you need?",
-    "ctaBody": "Talk to us and we will help you pick the right equipment for your building."
+    "contractorsEyebrow": "For contractors and consultants",
+    "contractorsTitle": "One supply source for the complete fire alarm package",
+    "contractorsBody": "Share your drawings or bill of quantities to request a BOQ and quotation for a coordinated fire alarm system and accessories package.",
+    "contractorsCta": "Request a BOQ / quotation",
+    "ctaTitle": "Preparing a project BOQ?",
+    "ctaBody": "Share the drawings or bill of quantities and request coordinated supply for your fire alarm project."
   },
   "products": {
     "eyebrow": "Catalog",
@@ -85,7 +105,9 @@
     "facetAvailability": "Availability",
     "facetSpecs": "Specifications",
     "emptyTitle": "No matching results",
-    "emptyBody": "Try adjusting the filters or searching another word — or just ask us on WhatsApp.",
+    "emptyBody": "Try adjusting the filters or search another word — or request a BOQ and quotation.",
+    "categoryQuoteMessage": "Hello, please prepare a BOQ and quotation for a project. Requested category: {category}.",
+    "generalQuoteMessage": "Hello, please prepare a BOQ and quotation for a fire alarm project.",
     "removeFilter": "Remove {name}",
     "showResults": "Show results",
     "filtersTitle": "Filter results"
@@ -98,7 +120,82 @@
     "lightboxPrev": "Previous image",
     "lightboxNext": "Next image",
     "breadcrumbLabel": "Breadcrumb",
-    "quoteMessage": "Hello, I would like a price quote for this product: {name}"
+    "quoteMessage": "Hello, please include this product in a project BOQ and quotation: {name}."
+  },
+  "contractors": {
+    "eyebrow": "Project supply",
+    "title": "For contractors and consultants: clear BOQs and coordinated supply",
+    "intro": "Share your project drawings or bill of quantities. We will review the scope and prepare a BOQ and quotation for fire alarm system components.",
+    "valueTitle": "Practical support for project and procurement teams",
+    "value": {
+      "1": {
+        "title": "From drawings to BOQ",
+        "body": "Share drawings or a bill of quantities to request a scope review, BOQ and quotation."
+      },
+      "2": {
+        "title": "One source for the supply package",
+        "body": "Coordinate panels, detectors, bases, sounders, call points, modules, batteries and cables in one package request."
+      },
+      "3": {
+        "title": "Authorized supply and brand warranty",
+        "body": "Supply of HST, Apollo and other brands, with authorized distributor warranty subject to each brand's terms."
+      },
+      "4": {
+        "title": "Delivery coordination and technical support",
+        "body": "We confirm availability against the requested items, coordinate phased deliveries and provide pre-commissioning technical support."
+      }
+    },
+    "formEyebrow": "Project request",
+    "formTitle": "Request a BOQ / quotation",
+    "formIntro": "Complete the project details. WhatsApp will open with a prepared message for you to review and send.",
+    "fields": {
+      "name": "Name",
+      "company": "Company",
+      "phone": "Phone / WhatsApp",
+      "project": "Project name",
+      "buildingType": "Building type",
+      "area": "Approximate area",
+      "system": "System type",
+      "tier": "Preferred brand tier",
+      "drawing": "Floor plan (optional)"
+    },
+    "selectOption": "Select",
+    "areaUnit": "m²",
+    "options": {
+      "buildingType": {
+        "commercial": "Commercial",
+        "administrative": "Administrative",
+        "industrial": "Industrial",
+        "healthcare": "Healthcare",
+        "residential": "Residential",
+        "education": "Education",
+        "other": "Other"
+      },
+      "system": {
+        "conventional": "Conventional",
+        "addressable": "Addressable",
+        "unsure": "Not sure"
+      },
+      "tier": {
+        "premium": "Premium",
+        "economy": "Economy",
+        "open": "Open to recommendation"
+      }
+    },
+    "validation": {
+      "required": "Complete this field with a valid value.",
+      "phone": "Enter a valid phone number, including the country code when needed.",
+      "area": "Enter an area greater than zero.",
+      "file": "Choose a PDF, image, DWG or DXF file."
+    },
+    "fileHelp": "You can select a PDF, image, DWG or DXF. The file is not uploaded automatically; attach it manually in WhatsApp.",
+    "messageIntro": "Fire alarm project BOQ / quotation request",
+    "manualAttachment": "I will attach the drawing manually in the chat; the site does not upload files.",
+    "submissionNote": "Your details are not sent to or stored by this site. WhatsApp opens with a draft for you to review and send; attach the drawing manually if selected.",
+    "whatsappUnavailable": "No WhatsApp number is currently enabled. Please contact us by phone.",
+    "sourceName": "Contractors and consultants",
+    "downloadsTitle": "Product catalogs and files",
+    "downloadsIntro": "Only download links already attached to products are shown."
   },
   "about": {
     "eyebrow": "About",

@@ -1,6 +1,6 @@
 # PROGRESS
 
-Current phase: **2 — Public site — DONE (2026-10-02)**, awaiting approval to start Phase 3.
+Current phase: **2 — Public site — follow-up in progress (2026-10-05)**; Phase 3 remains pending approval.
 
 ## Definition of done (every phase)
 - [x] `npm run build` succeeds as a static export
@@ -88,7 +88,7 @@ Current phase: **2 — Public site — DONE (2026-10-02)**, awaiting approval to
 
 **Decisions**: D-028…D-039 added; D-008 resolved (see `DECISIONS.md`).
 
-**Open questions**: D-006 (⚠ rows 46/65 need owner confirmation) and D-005 (contact/certificate/social data are obvious placeholders — owner replaces them via the admin UI in Phase 4; certificates/projects sections stay hidden until real rows exist).
+**Open questions**: D-006 (⚠ rows 46/65 need owner confirmation) and D-005 (phone numbers remain placeholders; certificates/projects stay hidden until real rows exist). Social-link seed placeholders were removed in the 2026-10-05 follow-up; verified public profiles and the RECH handle mismatch still need owner confirmation.
 
 ### 2026-10-02 — Phase 2 re-verification + local port move ✅
 - Windows `netsh` exclusion ranges shifted again: 553xx became forbidden, so the local stack moved to **560xx** (`supabase/config.toml`, `.env.local`, README, this file, D-022). Docker Desktop was restarted from scratch; `npx supabase start` green on the new ports, legacy anon key still accepted by REST.
@@ -113,3 +113,36 @@ Current phase: **2 — Public site — DONE (2026-10-02)**, awaiting approval to
 **Not verified**: the authenticated admin UI (no session in the test harness) — code-reviewed only; certificates/projects galleries unreachable because those tables are empty (no invented data, D-005).
 
 **Decisions**: D-040–D-045 added. **Open questions**: D-043 strict-44px?, plus two pre-existing files failing `format:check` that were left untouched: `src/app/(site)/[locale]/layout.tsx`, `start.md`.
+
+### 2026-10-05 — Phase 2 public conversion follow-up (verification blocked)
+**Built**
+- Added the bilingual `/[locale]/contractors/` landing page, linked from the main navigation and prominent home-page CTAs. The request form validates client-side with the existing Zod dependency, opens WhatsApp with all fields and a source tag, and states that drawings must be attached manually (the static site has no lead-submission endpoint).
+- Added catalog downloads only for published products with catalog URLs; no empty downloads section is shown.
+- Hid categories with zero published products on the home page and in filters; corrected Arabic category labels without changing slugs. Removed generic Chinese-origin data from brand presentation, centralized display spellings, and added migration updates for existing data.
+- Replaced installation-adjacent/unsupported copy with supply-only messaging, removed placeholder About text and fake seeded social links, and strip `fbclid` when rendering links. The header shows every active contact number and picks a marked WhatsApp destination randomly per click.
+
+**Verified**
+- `npm run lint` → 0 problems; `npm run typecheck` → 0 errors; Prettier check on touched application files → clean.
+- Arabic/English public message keys → 173 each, no missing keys.
+- `next build` compiled and passed TypeScript, but failed while collecting product route data because `NEXT_PUBLIC_SUPABASE_URL` points to the stopped local service at `127.0.0.1:56021`. `npx supabase start` could not start because Docker Desktop's Linux engine is unavailable. The new database migration is therefore not yet applied or locally validated, and no new production export/browser layout test was produced.
+- No `.github/workflows/deploy.yml` exists in this checkout; deployment automation remains outside this phase.
+
+**Open follow-ups**
+- Start Docker/Supabase, apply and verify the new migration, then rerun the production build and AR/EN RTL/LTR viewport checks before marking this follow-up verified.
+- Bases, batteries and cables are essential to a complete BOQ; add verified products for any of these categories that remain empty. Do not invent catalog entries.
+- Confirm Snower's official Arabic spelling and which (if either) RECH social handle is official. Certificate, project/client, and verified social-profile data remain absent/owner-provided only.
+- SEO work (sitemap, robots, hreflang, Open Graph and structured data) is deferred to Phase 6 per the approved phase gate.
+
+**Decisions**: D-046–D-050 added. Phase 3 has not started.
+
+### 2026-10-06 — Phase 2 public header contact details
+**Built**
+- The top strip labels every active phone number in the selected language.
+- Expanded the seeded working-hours text to explicitly say Saturday through Thursday, 9:00 AM to 6:00 PM. A migration updates only the unchanged original placeholder pair, leaving owner-customized hours intact.
+- Replaced the seeded placeholder phone numbers with the owner-provided sales/WhatsApp and technical-support numbers. The new migration updates only the two original placeholder numbers in existing databases.
+
+**Verification**
+- `npm run lint`, `npm run typecheck`, and Prettier checks on the changed TypeScript/docs passed.
+- `npm run build` compiled and passed TypeScript, but failed while collecting product pages because the configured local Supabase endpoint is unavailable. The hours and contact-number migrations were not applied or database-validated.
+
+**Decisions**: D-051–D-052 added. Phone-number role mapping follows the existing seed order (sales/WhatsApp first, technical support second).

@@ -234,7 +234,12 @@ export default async function ProductPage({ params }: PageProps) {
 
           {waNumber && (
             <div className="mt-4">
-              <QuoteWhatsAppButton number={waNumber} productName={name} label={tc('quote')} />
+              <QuoteWhatsAppButton
+                number={waNumber}
+                productName={name}
+                productUrl={`${(process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/+$/, '')}/${locale}/products/${product.slug}/`}
+                label={tc('requestBoq')}
+              />
             </div>
           )}
         </div>

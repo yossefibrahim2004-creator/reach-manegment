@@ -42,7 +42,9 @@ export default async function HomePage() {
   const heroLead = setting(site, 'hero_lead', locale);
   const phone = site.phones[0]?.number ?? null;
   const waNumber = whatsappNumber(site);
-  const whatsappUrl = waNumber ? waLink(waNumber, tc('waGreeting')) : null;
+  const whatsappUrl = waNumber
+    ? waLink(waNumber, `${tc('waGreeting')}\n${tc('sourceTag')}: ${tc('pageHome')}`)
+    : null;
 
   const whyItems = [1, 2, 3]
     .map((slot) => ({
@@ -82,11 +84,17 @@ export default async function HomePage() {
             {heroLead && <p className="mt-4 max-w-xl text-lg text-slate-400">{heroLead}</p>}
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
-                href="/products/"
+                href="/contractors/"
                 className="bg-primary hover:bg-primary-hover inline-flex h-12 items-center gap-2 rounded-md px-6 font-bold text-white transition-colors"
               >
-                {tc('browseProducts')}
+                {tc('requestBoq')}
                 <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
+              </Link>
+              <Link
+                href="/products/"
+                className="inline-flex h-12 items-center gap-2 rounded-md border border-white/25 px-6 font-bold transition-colors hover:bg-white/10"
+              >
+                {tc('browseProducts')}
               </Link>
               {whatsappUrl && (
                 <a
@@ -96,12 +104,29 @@ export default async function HomePage() {
                   className="bg-whatsapp hover:bg-navy-950 inline-flex h-12 items-center gap-2 rounded-md px-6 font-bold text-white transition-colors"
                 >
                   <FaWhatsapp aria-hidden="true" className="h-5 w-5" />
-                  {tc('askWa')}
+                  {tc('whatsapp')}
                 </a>
               )}
             </div>
           </div>
           <HeroPanel />
+        </div>
+      </section>
+
+      <section className="container-page py-12 lg:py-16">
+        <div className="border-border bg-surface-alt flex flex-col items-start justify-between gap-5 rounded-lg border p-6 sm:flex-row sm:items-center sm:p-8">
+          <div>
+            <p className="text-fire-600 text-sm font-bold">{t('contractorsEyebrow')}</p>
+            <h2 className="mt-2 text-xl font-bold lg:text-2xl">{t('contractorsTitle')}</h2>
+            <p className="text-muted mt-2 max-w-3xl">{t('contractorsBody')}</p>
+          </div>
+          <Link
+            href="/contractors/"
+            className="bg-primary hover:bg-primary-hover inline-flex h-12 shrink-0 items-center gap-2 rounded-md px-5 font-bold text-white transition-colors"
+          >
+            {t('contractorsCta')}
+            <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
+          </Link>
         </div>
       </section>
 
@@ -113,15 +138,17 @@ export default async function HomePage() {
           action={viewAllLink}
         />
         <ul className="mt-8 grid list-none grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {categoryCounts.map(({ category, count }) => (
-            <li key={category.slug}>
-              <CategoryTile
-                slug={category.slug}
-                name={locale === 'en' ? category.name_en : category.name_ar}
-                count={count}
-              />
-            </li>
-          ))}
+          {categoryCounts
+            .filter(({ count }) => count > 0)
+            .map(({ category, count }) => (
+              <li key={category.slug}>
+                <CategoryTile
+                  slug={category.slug}
+                  name={locale === 'en' ? category.name_en : category.name_ar}
+                  count={count}
+                />
+              </li>
+            ))}
         </ul>
       </section>
 
@@ -253,6 +280,13 @@ export default async function HomePage() {
             <p className="mt-2 max-w-xl text-slate-400">{t('ctaBody')}</p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <Link
+              href="/contractors/"
+              className="bg-primary hover:bg-primary-hover inline-flex h-12 items-center gap-2 rounded-md px-5 font-bold text-white transition-colors"
+            >
+              {tc('requestBoq')}
+              <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
+            </Link>
             {phone && (
               <a
                 href={telLink(phone)}

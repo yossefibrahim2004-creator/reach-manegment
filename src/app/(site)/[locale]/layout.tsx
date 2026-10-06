@@ -7,7 +7,7 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { FloatingWhatsApp } from '@/components/layout/floating-whatsapp';
 import { fontVariables } from '@/lib/fonts';
 import { routing } from '@/lib/i18n/routing';
-import { getSiteData, setting, whatsappNumber } from '@/lib/supabase/queries';
+import { getSiteData, setting, whatsappNumber, whatsappNumbers } from '@/lib/supabase/queries';
 import { waLink } from '@/lib/whatsapp';
 import '@/app/globals.css';
 
@@ -50,12 +50,16 @@ export default async function SiteRootLayout({ children, params }: LayoutProps) 
   ]);
 
   const waNumber = whatsappNumber(site);
-  const whatsappUrl = waNumber ? waLink(waNumber, t('waGreeting')) : null;
-
-  // كل الأرقام، من غير الفاضي ومن غير التكرار
-  const phones = Array.from(
-    new Set(site.phones.map((p) => p.number).filter((n): n is string => Boolean(n))),
-  );
+  const headerWhatsAppMessage = `${t('waGreeting')}\n${t('sourceTag')}: ${t('pageHeader')}`;
+  const whatsappUrl = waNumber
+    ? waLink(waNumber, `${t('waGreeting')}\n${t('sourceTag')}: ${t('pageFloating')}`)
+    : null;
+  const waNumbers = whatsappNumbers(site);
+  const phones = site.phones.map(({ id, label_ar, label_en, number }) => ({
+    id,
+    label: locale === 'en' ? label_en : label_ar,
+    number,
+  }));
 
   return (
     <html lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'} className={fontVariables}>
@@ -72,7 +76,8 @@ export default async function SiteRootLayout({ children, params }: LayoutProps) 
             companyName={setting(site, 'company_name', locale)}
             hours={setting(site, 'hours', locale)}
             phones={phones}
-            whatsappUrl={whatsappUrl}
+            whatsappNumbers={waNumbers}
+            whatsappMessage={headerWhatsAppMessage}
           />
           <div className="flex-1">{children}</div>
           <SiteFooter site={site} locale={locale} />

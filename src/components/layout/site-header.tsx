@@ -5,21 +5,29 @@ import { Clock, Flame, Menu, Phone, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Link, usePathname, useRouter } from '@/lib/i18n/navigation';
 import { cn } from '@/lib/cn';
-import { telLink } from '@/lib/whatsapp';
+import { telLink, waLink } from '@/lib/whatsapp';
 import { FaWhatsapp } from 'react-icons/fa6';
 
 type Props = {
   locale: string;
   companyName: string;
   hours: string;
-  phones: string[];
-  whatsappUrl: string | null;
+  phones: { id: string; label: string; number: string }[];
+  whatsappNumbers: string[];
+  whatsappMessage: string;
 };
 
 const focusRing =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fire-600';
 
-export function SiteHeader({ locale, companyName, hours, phones, whatsappUrl }: Props) {
+export function SiteHeader({
+  locale,
+  companyName,
+  hours,
+  phones,
+  whatsappNumbers,
+  whatsappMessage,
+}: Props) {
   const t = useTranslations('nav');
   const tc = useTranslations('common');
   const router = useRouter();
@@ -33,6 +41,7 @@ export function SiteHeader({ locale, companyName, hours, phones, whatsappUrl }: 
   const navItems = [
     { href: '/', label: t('home') },
     { href: '/products/', label: t('products') },
+    { href: '/contractors/', label: t('contractors') },
     { href: '/about/', label: t('about') },
     { href: '/contact/', label: t('contact') },
   ];
@@ -43,6 +52,12 @@ export function SiteHeader({ locale, companyName, hours, phones, whatsappUrl }: 
   };
 
   const closeMenu = () => setMenuOpen(false);
+  const openRandomWhatsApp = () => {
+    const number = whatsappNumbers[Math.floor(Math.random() * whatsappNumbers.length)];
+    if (number) {
+      window.open(waLink(number, whatsappMessage), '_blank', 'noopener,noreferrer');
+    }
+  };
 
   const [prevPath, setPrevPath] = useState(pathname);
   if (prevPath !== pathname) {
@@ -74,7 +89,7 @@ export function SiteHeader({ locale, companyName, hours, phones, whatsappUrl }: 
     router.push(`${cleanPath}${query}`, { locale: locale === 'ar' ? 'en' : 'ar' });
   };
 
-  const hasContacts = phones.length > 0 || Boolean(whatsappUrl);
+  const hasContacts = phones.length > 0 || whatsappNumbers.length > 0;
   const hasTopBar = Boolean(hours) || hasContacts;
 
   return (
@@ -92,9 +107,10 @@ export function SiteHeader({ locale, companyName, hours, phones, whatsappUrl }: 
             {hasContacts && (
               <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 {phones.map((phone) => (
-                  <li key={phone}>
+                  <li key={phone.id} className="flex items-center gap-1.5">
+                    <span className="text-slate-400">{phone.label}:</span>
                     <a
-                      href={telLink(phone)}
+                      href={telLink(phone.number)}
                       dir="ltr"
                       className={cn(
                         'phone inline-flex items-center gap-1.5 py-1 font-semibold transition-colors hover:text-white',
@@ -103,17 +119,21 @@ export function SiteHeader({ locale, companyName, hours, phones, whatsappUrl }: 
                       )}
                     >
                       <Phone aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      {phone}
+                      {phone.number}
                     </a>
                   </li>
                 ))}
 
-                {whatsappUrl && (
+                {whatsappNumbers.length > 0 && (
                   <li>
                     <a
-                      href={whatsappUrl}
+                      href={waLink(whatsappNumbers[0], whatsappMessage)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        openRandomWhatsApp();
+                      }}
                       className={cn(
                         'inline-flex items-center gap-1.5 py-1 font-semibold transition-colors hover:text-white',
                         'focus-visible:outline-white',

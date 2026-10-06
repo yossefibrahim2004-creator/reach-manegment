@@ -7,6 +7,7 @@ import { waLink } from '@/lib/whatsapp';
 type Props = {
   number: string;
   productName: string;
+  productUrl: string;
   label: string;
 };
 
@@ -15,14 +16,15 @@ type Props = {
  * product name + the live page URL. Falls back to the product-name message
  * without JavaScript; the onClick adds the exact URL of the viewed page.
  */
-export function QuoteWhatsAppButton({ number, productName, label }: Props) {
+export function QuoteWhatsAppButton({ number, productName, productUrl, label }: Props) {
   const t = useTranslations('product');
-  const baseMessage = t('quoteMessage', { name: productName });
+  const tc = useTranslations('common');
+  const baseMessage = `${t('quoteMessage', { name: productName })}\n${productUrl}\n${tc('sourceTag')}: ${tc('pageProduct')}`;
   const fallback = waLink(number, baseMessage);
 
   const onClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    const message = `${baseMessage}\n${window.location.href}`;
+    const message = `${t('quoteMessage', { name: productName })}\n${window.location.href}\n${tc('sourceTag')}: ${tc('pageProduct')}`;
     window.open(waLink(number, message), '_blank', 'noopener,noreferrer');
   };
 

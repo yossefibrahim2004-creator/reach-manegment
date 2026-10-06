@@ -26,27 +26,29 @@ export default async function AboutPage() {
 
   const story = setting(site, 'about_story', locale);
   const vision = setting(site, 'about_vision', locale);
-  const greeting = tc('waGreeting');
+  const greeting = `${tc('waGreeting')}\n${tc('sourceTag')}: ${tc('pageAbout')}`;
 
   return (
     <main id="main-content" className="container-page py-10 lg:py-14">
       <p className="text-fire-600 text-sm font-bold">{t('eyebrow')}</p>
       <h1 className="mt-1 text-3xl font-bold lg:text-4xl">{t('title')}</h1>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {story && (
-          <section className="border-border bg-surface rounded-md border p-6 shadow-sm">
-            <h2 className="text-lg font-bold">{t('storyTitle')}</h2>
-            <p className="text-muted mt-3 whitespace-pre-line">{story}</p>
-          </section>
-        )}
-        {vision && (
-          <section className="border-border bg-surface rounded-md border p-6 shadow-sm">
-            <h2 className="text-lg font-bold">{t('visionTitle')}</h2>
-            <p className="text-muted mt-3 whitespace-pre-line">{vision}</p>
-          </section>
-        )}
-      </div>
+      {(story || vision) && (
+        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {story && (
+            <section className="border-border bg-surface rounded-md border p-6 shadow-sm">
+              <h2 className="text-lg font-bold">{t('storyTitle')}</h2>
+              <p className="text-muted mt-3 whitespace-pre-line">{story}</p>
+            </section>
+          )}
+          {vision && (
+            <section className="border-border bg-surface rounded-md border p-6 shadow-sm">
+              <h2 className="text-lg font-bold">{t('visionTitle')}</h2>
+              <p className="text-muted mt-3 whitespace-pre-line">{vision}</p>
+            </section>
+          )}
+        </div>
+      )}
 
       {certificates.length > 0 && (
         <section className="mt-12">

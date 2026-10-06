@@ -22,6 +22,7 @@ import type {
 } from '@/lib/products/types';
 import { ProductCard } from '@/components/ui/product-card';
 import { useDialogBehavior } from '@/lib/use-dialog';
+import { waLink } from '@/lib/whatsapp';
 
 const PAGE_SIZE = 24;
 const SYSTEM_VALUES = ['conventional', 'addressable'] as const;
@@ -50,7 +51,7 @@ type Props = {
   categories: CategoryData[];
   brands: BrandData[];
   specDefs: SpecDefinition[];
-  whatsappUrl: string | null;
+  whatsappNumber: string | null;
 };
 
 /**
@@ -63,7 +64,7 @@ export function ProductsExplorer({
   categories,
   brands,
   specDefs,
-  whatsappUrl,
+  whatsappNumber,
 }: Props) {
   const t = useTranslations('products');
   const tc = useTranslations('common');
@@ -76,6 +77,10 @@ export function ProductsExplorer({
   const state = useMemo(
     () => parseListingState(new URLSearchParams(searchParams.toString())),
     [searchParams],
+  );
+  const selectedCategories = useMemo(
+    () => state.category.filter((slug) => categories.some((category) => category.slug === slug)),
+    [categories, state.category],
   );
 
   const applyState = useCallback(
@@ -127,8 +132,8 @@ export function ProductsExplorer({
     (product: ProductCardData, skipFacet?: FacetKey, skipSpecKey?: string): boolean => {
       if (searchIds && !searchIds.has(product.id)) return false;
 
-      if (state.category.length > 0 && skipFacet !== 'category') {
-        if (!state.category.includes(product.category?.slug ?? '')) return false;
+      if (selectedCategories.length > 0 && skipFacet !== 'category') {
+        if (!selectedCategories.includes(product.category?.slug ?? '')) return false;
       }
       if (state.brand.length > 0 && skipFacet !== 'brand') {
         if (!state.brand.includes(product.brand?.slug ?? '')) return false;
@@ -140,7 +145,7 @@ export function ProductsExplorer({
         if (!state.availability.includes(product.availability)) return false;
       }
 
-      if (state.category.length === 1) {
+      if (selectedCategories.length === 1) {
         const specs = product.specs;
         const isObject = specs !== null && typeof specs === 'object' && !Array.isArray(specs);
         for (const [key, values] of Object.entries(state.specs)) {
@@ -155,7 +160,7 @@ export function ProductsExplorer({
 
       return true;
     },
-    [searchIds, state],
+    [searchIds, selectedCategories, state],
   );
 
   const list = useMemo(() => {
@@ -183,6 +188,19 @@ export function ProductsExplorer({
     if (!item) return slug;
     return locale === 'en' ? item.name_en : item.name_ar;
   };
+  const quoteMessage = selectedCategories.length
+    ? t('categoryQuoteMessage', {
+        category: selectedCategories.map((slug) => nameOf(slug, 'category')).join(', '),
+      })
+    : t('generalQuoteMessage');
+  const quoteUrl = whatsappNumber
+    ? waLink(
+        whatsappNumber,
+        `${quoteMessage}\n${tc('sourceTag')}: ${
+          selectedCategories.length ? tc('pageCategory') : tc('pageProducts')
+        }`,
+      )
+    : null;
 
   const countFacet = (facet: FacetKey, value: string): number =>
     products.filter((product) => passes(product, facet) && facetValue(product, facet) === value)
@@ -197,7 +215,7 @@ export function ProductsExplorer({
       return raw !== null && raw !== undefined && String(raw) === value;
     }).length;
 
-  const specActive = state.category.length === 1;
+  const specActive = selectedCategories.length === 1;
 
   const facetOptions: Record<FacetKey, FacetOption[]> = {
     category: categories
@@ -206,7 +224,7 @@ export function ProductsExplorer({
         label: locale === 'en' ? category.name_en : category.name_ar,
         count: countFacet('category', category.slug),
       }))
-      .filter((option) => option.count > 0 || state.category.includes(option.value)),
+      .filter((option) => option.count > 0),
     brand: brands
       .map((brand) => ({
         value: brand.slug,
@@ -323,7 +341,7 @@ export function ProductsExplorer({
       },
     });
   }
-  for (const slug of state.category) {
+  for (const slug of selectedCategories) {
     chips.push({
       id: `category:${slug}`,
       label: nameOf(slug, 'category'),
@@ -377,7 +395,7 @@ export function ProductsExplorer({
 
   const activeCount =
     (state.q ? 1 : 0) +
-    state.category.length +
+    selectedCategories.length +
     state.brand.length +
     state.system.length +
     state.availability.length +
@@ -499,9 +517,9 @@ export function ProductsExplorer({
               <SearchX aria-hidden="true" className="mx-auto h-10 w-10 text-slate-400" />
               <h2 className="mt-4 text-xl font-bold">{t('emptyTitle')}</h2>
               <p className="text-muted mx-auto mt-2 max-w-md">{t('emptyBody')}</p>
-              {whatsappUrl && (
+              {quoteUrl && (
                 <a
-                  href={whatsappUrl}
+                  href={quoteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-whatsapp hover:bg-navy-950 mt-6 inline-flex h-11 items-center gap-2 rounded-md px-5 font-bold text-white transition-colors"

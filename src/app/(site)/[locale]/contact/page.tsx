@@ -17,7 +17,7 @@ export default async function ContactPage() {
   const tc = await getTranslations('common');
 
   const site = await getSiteData();
-  const greeting = tc('waGreeting');
+  const greeting = `${tc('waGreeting')}\n${tc('sourceTag')}: ${tc('pageContact')}`;
 
   return (
     <main id="main-content" className="container-page py-10 lg:py-14">

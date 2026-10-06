@@ -8,6 +8,8 @@ import type {
   ProductCardData,
   SpecDefinition,
 } from '@/lib/products/types';
+import { normalizeBrandName } from '@/lib/brand-names';
+import { SITE_IDENTITY } from '@/lib/site-identity';
 
 /* ---------------------------------------------------------------- rows --- */
 
@@ -28,8 +30,9 @@ export type SiteData = {
 /** Locale-aware setting lookup with an empty-string fallback. */
 export function setting(site: SiteData, key: string, locale: string): string {
   const value = site.settings[key];
-  if (!value) return '';
-  return value[locale === 'en' ? 'en' : 'ar'] || value.ar || value.en || '';
+  const resolved = value ? value[locale === 'en' ? 'en' : 'ar'] || value.ar || value.en || '' : '';
+  if (resolved) return resolved;
+  return key === 'company_name' ? SITE_IDENTITY.name[locale === 'en' ? 'en' : 'ar'] : '';
 }
 
 function must<T>(data: T | null, error: { message: string } | null, label: string): T {
@@ -40,6 +43,15 @@ function must<T>(data: T | null, error: { message: string } | null, label: strin
     throw new Error(`[supabase] ${label} returned no data`);
   }
   return data;
+}
+
+function removeFacebookTracking(url: string): string {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('[supabase] social link URLs must use HTTP or HTTPS');
+  }
+  parsed.searchParams.delete('fbclid');
+  return parsed.toString();
 }
 
 /* ---------------------------------------------------------------- site --- */
@@ -60,13 +72,23 @@ export const getSiteData = cache(async (): Promise<SiteData> => {
     map[row.key] = { ar: row.value_ar ?? '', en: row.value_en ?? '' };
   }
 
-  return { settings: map, phones: phoneRows, socials: socialRows };
+  return {
+    settings: map,
+    phones: phoneRows,
+    socials: socialRows.map((social) => ({ ...social, url: removeFacebookTracking(social.url) })),
+  };
 });
 
-/** The WhatsApp number: first active row flagged as WhatsApp, else the first row. */
+/** Active, unique contact numbers explicitly enabled for WhatsApp. */
+export function whatsappNumbers(site: SiteData): string[] {
+  return Array.from(
+    new Set(site.phones.filter((phone) => phone.is_whatsapp).map((phone) => phone.number)),
+  );
+}
+
+/** The first active number explicitly enabled for WhatsApp, if one exists. */
 export function whatsappNumber(site: SiteData): string | null {
-  const number = site.phones.find((phone) => phone.is_whatsapp) ?? site.phones[0];
-  return number?.number ?? null;
+  return whatsappNumbers(site)[0] ?? null;
 }
 
 /* ------------------------------------------------------------ products --- */
@@ -116,6 +138,13 @@ function toCardProduct(row: ProductJoinRow): ProductCardData {
     entity
       ? { id: entity.id, slug: entity.slug, name_ar: entity.name_ar, name_en: entity.name_en }
       : null;
+  const pickedBrand = pick(row.brand);
+  const brand =
+    pickedBrand?.slug === 'generic-chinese'
+      ? null
+      : pickedBrand
+        ? normalizeBrandName(pickedBrand)
+        : null;
 
   return {
     id: row.id,
@@ -132,7 +161,7 @@ function toCardProduct(row: ProductJoinRow): ProductCardData {
     search_keywords: row.search_keywords,
     catalog_ar_url: row.catalog_ar_url,
     catalog_en_url: row.catalog_en_url,
-    brand: pick(row.brand),
+    brand,
     category: pick(row.category),
     series: pick(row.series),
     images: (row.images ?? [])
@@ -269,9 +298,19 @@ export const getBrands = cache(async (): Promise<BrandData[]> => {
   const query = await supabase
     .from('brands')
     .select('id, slug, name_ar, name_en, logo_url, sort_order')
+    .neq('slug', 'generic-chinese')
     .order('sort_order');
   const rows = must(query.data, query.error, 'brands');
-  return rows;
+  const seenArabic = new Set<string>();
+  const seenEnglish = new Set<string>();
+  return rows.map(normalizeBrandName).filter((brand) => {
+    const arabic = brand.name_ar.trim();
+    const english = brand.name_en.trim().toLocaleLowerCase();
+    if (seenArabic.has(arabic) || seenEnglish.has(english)) return false;
+    seenArabic.add(arabic);
+    seenEnglish.add(english);
+    return true;
+  });
 });
 
 export const getCertificates = cache(async (): Promise<CertificateRow[]> => {

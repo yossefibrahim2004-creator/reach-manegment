@@ -10,7 +10,6 @@ import {
   getSpecDefinitions,
   whatsappNumber,
 } from '@/lib/supabase/queries';
-import { waLink } from '@/lib/whatsapp';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('meta.products');
@@ -23,7 +22,6 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ProductsPage() {
   const locale = await getLocale();
   const t = await getTranslations('products');
-  const tc = await getTranslations('common');
 
   const [products, categories, brands, specDefs, site] = await Promise.all([
     getAllProducts(),
@@ -32,9 +30,11 @@ export default async function ProductsPage() {
     getSpecDefinitions(),
     getSiteData(),
   ]);
+  const populatedCategories = categories.filter((category) =>
+    products.some((product) => product.category?.slug === category.slug),
+  );
 
   const waNumber = whatsappNumber(site);
-  const whatsappUrl = waNumber ? waLink(waNumber, tc('waGreeting')) : null;
 
   return (
     <main id="main-content" className="container-page py-10 lg:py-14">
@@ -62,10 +62,10 @@ export default async function ProductsPage() {
         <ProductsExplorer
           locale={locale}
           products={products}
-          categories={categories}
+          categories={populatedCategories}
           brands={brands}
           specDefs={specDefs}
-          whatsappUrl={whatsappUrl}
+          whatsappNumber={waNumber}
         />
       </Suspense>
     </main>

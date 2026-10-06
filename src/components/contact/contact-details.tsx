@@ -62,15 +62,17 @@ export function ContactDetails({ site, locale, greeting }: Props) {
                     <Phone aria-hidden="true" className="h-3.5 w-3.5" />
                     {t('common.call')}
                   </a>
-                  <a
-                    href={waLink(number.number, message)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-whatsapp hover:bg-navy-950 inline-flex h-11 items-center gap-1.5 rounded-md px-3 text-xs font-bold text-white transition-colors"
-                  >
-                    <FaWhatsapp aria-hidden="true" className="h-3.5 w-3.5" />
-                    {t('common.whatsapp')}
-                  </a>
+                  {number.is_whatsapp && (
+                    <a
+                      href={waLink(number.number, message)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-whatsapp hover:bg-navy-950 inline-flex h-11 items-center gap-1.5 rounded-md px-3 text-xs font-bold text-white transition-colors"
+                    >
+                      <FaWhatsapp aria-hidden="true" className="h-3.5 w-3.5" />
+                      {t('common.whatsapp')}
+                    </a>
+                  )}
                 </span>
               </li>
             ))}
