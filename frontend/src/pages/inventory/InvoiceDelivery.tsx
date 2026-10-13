@@ -13,6 +13,8 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Modal } from "../../components/ui/Modal";
 import { useI18n } from "../../i18n/context";
 import { useRealtimeRefresh } from "../../hooks/useRealtimeEvents";
+import PrintButton from "../../features/reports/components/PrintButton";
+import PrintHeader from "../../features/reports/components/PrintHeader";
 import type { Invoice, PaginatedResponse } from "../../types";
 
 interface DeliverySummary {
@@ -119,8 +121,15 @@ export default function InvoiceDelivery() {
     setDelivering(invoiceId);
     try {
       await api.patch(`/invoices/${invoiceId}/deliver`);
-      setSelectedInvoice(null);
-      setDeliverySummary(null);
+      setSelectedInvoice((current) => {
+        const deliveredInvoice = current ?? invoices.find((invoice) => invoice.id === invoiceId) ?? null;
+        return deliveredInvoice?.id === invoiceId
+          ? { ...deliveredInvoice, status: "DELIVERED" }
+          : current;
+      });
+      setDeliverySummary((current) =>
+        current ? { ...current, status: "DELIVERED" } : current,
+      );
       fetchInvoices();
       notify.success(SUCCESS_MESSAGES.invoice.delivered);
     } catch (err) {
@@ -280,20 +289,24 @@ export default function InvoiceDelivery() {
         footer={
           selectedInvoice ? (
             <>
+              {selectedInvoice.status === "DELIVERED" ? (
+                <PrintButton />
+              ) : (
+                <Button
+                  variant="primary"
+                  loading={delivering === selectedInvoice.id}
+                  disabled={remainingScans > 0}
+                  onClick={() => { void handleDeliver(selectedInvoice.id); }}
+                >
+                  {t.markDelivered}
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => {
                 setSelectedInvoice(null);
                 setDeliverySummary(null);
                 setBarcodeInput("");
               }}>
                 {t.close}
-              </Button>
-              <Button
-                variant="primary"
-                loading={delivering === selectedInvoice.id}
-                disabled={remainingScans > 0}
-                onClick={() => { void handleDeliver(selectedInvoice.id); }}
-              >
-                {t.markDelivered}
               </Button>
             </>
           ) : null
@@ -359,7 +372,7 @@ export default function InvoiceDelivery() {
                             ))}
                           </div>
                         )}
-                        {needsScan && (
+                        {needsScan && selectedInvoice.status !== "DELIVERED" && (
                           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             <div style={{ display: "flex", gap: "8px" }}>
                               <input
@@ -404,7 +417,7 @@ export default function InvoiceDelivery() {
                 );
               })}
 
-              {remainingScans > 0 && (
+              {remainingScans > 0 && selectedInvoice.status !== "DELIVERED" && (
                 <div
                   style={{
                     background: "var(--accent-bg)",
@@ -423,6 +436,491 @@ export default function InvoiceDelivery() {
           </div>
         )}
       </Modal>
+
+      {selectedInvoice?.status === "DELIVERED" && (
+        <div className="delivery-print-sheet invoice-page" dir="rtl" aria-hidden="true">
+          <div className="invoice-container">
+            <PrintHeader
+              titleEn={`Delivery Note ${selectedInvoice.invoiceNumber}`}
+              titleAr="إذن تسليم فاتورة"
+              range={{ from: new Date(selectedInvoice.date).toLocaleDateString("en-GB"), to: new Date(selectedInvoice.date).toLocaleDateString("en-GB") }}
+              filters={[
+                { label: t.invoices.customer, value: selectedInvoice.customer?.name || "—" },
+                { label: t.invoices.employee, value: selectedInvoice.employee?.name || "—" },
+              ]}
+            />
+
+            <section className="invoice-panel invoice-overview">
+              <div className="invoice-title-row">
+                <div>
+                  <p className="invoice-kicker">إذن تسليم · DELIVERY NOTE</p>
+                  <h1 dir="ltr">{selectedInvoice.invoiceNumber}</h1>
+                </div>
+              </div>
+
+              <dl className="invoice-meta">
+                <div>
+                  <dt>{t.date}</dt>
+                  <dd dir="ltr">{new Date(selectedInvoice.date).toLocaleDateString("en-GB")}</dd>
+                </div>
+                <div>
+                  <dt>{t.invoices.customer}</dt>
+                  <dd>{selectedInvoice.customer?.name || "—"}</dd>
+                </div>
+                <div>
+                  <dt>{t.invoices.employee}</dt>
+                  <dd>{selectedInvoice.employee?.name || "—"}</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section className="invoice-panel invoice-items-panel">
+              <div className="invoice-section-head">
+                <h2>{t.invoices.invoiceItems}</h2>
+                <span>{selectedInvoice.items?.length ?? 0}</span>
+              </div>
+              <div className="invoice-table-wrap">
+                <table className="invoice-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">{t.invoices.product}</th>
+                      <th scope="col" className="cell-center">{t.invoices.qty}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedInvoice.items ?? []).length === 0 ? (
+                      <tr>
+                        <td className="invoice-no-data" colSpan={2}>{t.invoices.noItems}</td>
+                      </tr>
+                    ) : (
+                      selectedInvoice.items.map((item, index) => (
+                        <tr key={String(item.id ?? item.productUnit?.barcode ?? index)}>
+                          <td>
+                            <strong>{item.productUnit?.productModel?.name || item.productModel?.name || "—"}</strong>
+                            {item.productUnit?.barcode && (
+                              <small dir="ltr">{item.productUnit.barcode}</small>
+                            )}
+                          </td>
+                          <td className="cell-center numeric">
+                            {item.quantity ?? 1}
+                            {item.productModel?.unit === "METER" ? ` ${t.uom.METER}` : ""}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="delivery-signatures" aria-label="تأكيد استلام الأصناف">
+              <div className="delivery-signatures-heading">
+                <h2>تأكيد الاستلام</h2>
+                <p>أقر باستلام الأصناف الموضحة أعلاه بالحالة والكميات المذكورة.</p>
+              </div>
+              <div className="delivery-signatures-grid">
+                <div className="delivery-signature">
+                  <h3>المستلم <span>Received by</span></h3>
+                  <div className="delivery-signature-space" aria-hidden="true" />
+                  <div className="delivery-signature-fields">
+                    <span>الاسم</span>
+                    <span>التوقيع</span>
+                  </div>
+                </div>
+                <div className="delivery-signature">
+                  <h3>أمين المخزن <span>Issued by</span></h3>
+                  <div className="delivery-signature-space" aria-hidden="true" />
+                  <div className="delivery-signature-fields">
+                    <span>الاسم</span>
+                    <span>التوقيع</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .delivery-print-sheet {
+          display: none;
+          --invoice-ink: #173f5f;
+          --invoice-primary: #247ba0;
+          --invoice-soft: #668397;
+          --invoice-border: rgba(23, 63, 95, 0.12);
+          --invoice-surface: rgba(255, 255, 255, 0.78);
+          color: var(--invoice-ink);
+          font-family: "Manrope", "Cairo", Arial, sans-serif;
+        }
+
+        .delivery-print-sheet .invoice-overview {
+          padding: 28px;
+          margin-bottom: 22px;
+        }
+
+        .delivery-print-sheet .invoice-title-row {
+          display: flex;
+          justify-content: space-between;
+        }
+
+        .delivery-print-sheet .invoice-kicker {
+          margin: 0 0 5px;
+          color: var(--invoice-soft);
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .delivery-print-sheet .invoice-title-row h1 {
+          margin: 0;
+          font-family: "Sora", "Cairo", sans-serif;
+          font-size: 30px;
+        }
+
+        .delivery-print-sheet .invoice-meta {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 22px;
+          margin: 28px 0 0;
+        }
+
+        .delivery-print-sheet .invoice-meta dt {
+          color: var(--invoice-soft);
+          font-size: 11px;
+        }
+
+        .delivery-print-sheet .invoice-meta dd {
+          margin: 5px 0 0;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .delivery-print-sheet .invoice-items-panel {
+          overflow: hidden;
+          border: 1px solid var(--invoice-border);
+          border-radius: 18px;
+          background: var(--invoice-surface);
+          box-shadow: 0 18px 50px rgba(23, 63, 95, 0.06);
+        }
+
+        .delivery-print-sheet .invoice-section-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 18px 22px;
+          border-bottom: 1px solid var(--invoice-border);
+        }
+
+        .delivery-print-sheet .invoice-section-head h2 {
+          margin: 0;
+          font-size: 17px;
+        }
+
+        .delivery-print-sheet .invoice-section-head > span {
+          display: grid;
+          min-width: 25px;
+          height: 25px;
+          padding: 0 7px;
+          place-items: center;
+          border-radius: 999px;
+          background: rgba(36, 123, 160, 0.1);
+          color: var(--invoice-primary);
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .delivery-print-sheet .invoice-table {
+          width: 100%;
+          border-collapse: collapse;
+          text-align: start;
+        }
+
+        .delivery-print-sheet .invoice-table th {
+          padding: 12px 22px;
+          background: rgba(36, 123, 160, 0.055);
+          color: var(--invoice-soft);
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .delivery-print-sheet .invoice-table td {
+          padding: 16px 22px;
+          border-top: 1px solid var(--invoice-border);
+          font-size: 13px;
+        }
+
+        .delivery-print-sheet .invoice-table td strong,
+        .delivery-print-sheet .invoice-table td small {
+          display: block;
+        }
+
+        .delivery-print-sheet .invoice-table td small {
+          margin-top: 4px;
+          color: var(--invoice-soft);
+          font-size: 10px;
+        }
+
+        .delivery-print-sheet .cell-center {
+          text-align: center;
+        }
+
+        .delivery-print-sheet .numeric {
+          direction: ltr;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+
+        .delivery-print-sheet .invoice-no-data {
+          padding: 20px;
+          color: var(--invoice-soft);
+          text-align: center;
+        }
+
+        .delivery-print-sheet .delivery-signatures {
+          margin-top: 22px;
+          padding: 20px 22px 18px;
+          border: 1px solid var(--invoice-border);
+          border-radius: 14px;
+          background: #fff;
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        .delivery-print-sheet .delivery-signatures-heading {
+          padding-bottom: 13px;
+          border-bottom: 1px solid var(--invoice-border);
+        }
+
+        .delivery-print-sheet .delivery-signatures-heading h2 {
+          margin: 0;
+          color: var(--invoice-ink);
+          font-size: 15px;
+        }
+
+        .delivery-print-sheet .delivery-signatures-heading p {
+          margin: 5px 0 0;
+          color: var(--invoice-soft);
+          font-size: 11px;
+        }
+
+        .delivery-print-sheet .delivery-signatures-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 26px;
+          padding-top: 16px;
+        }
+
+        .delivery-print-sheet .delivery-signature h3 {
+          display: flex;
+          align-items: baseline;
+          gap: 7px;
+          margin: 0;
+          color: var(--invoice-ink);
+          font-size: 12px;
+        }
+
+        .delivery-print-sheet .delivery-signature h3 span {
+          color: var(--invoice-soft);
+          font-size: 9px;
+          font-weight: 500;
+          direction: ltr;
+        }
+
+        .delivery-print-sheet .delivery-signature-space {
+          height: 28px;
+        }
+
+        .delivery-print-sheet .delivery-signature-fields {
+          display: grid;
+          grid-template-columns: 1.2fr 1.2fr 0.8fr;
+          gap: 12px;
+        }
+
+        .delivery-print-sheet .delivery-signature-fields span {
+          padding-top: 5px;
+          border-top: 1px solid #8da0ac;
+          color: var(--invoice-soft);
+          font-size: 9px;
+        }
+
+        @media print {
+          @page {
+            size: A4;
+            margin: 10mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .delivery-print-sheet,
+          .delivery-print-sheet * {
+            visibility: visible !important;
+          }
+
+          .delivery-print-sheet {
+            --invoice-ink: #111;
+            --invoice-primary: #222;
+            --invoice-soft: #555;
+            --invoice-border: #888;
+            --invoice-surface: #fff;
+            display: block !important;
+            position: fixed;
+            inset: 0;
+            z-index: 2147483647;
+            width: 100%;
+            min-height: 0;
+            overflow: visible;
+            padding: 0;
+            background: #fff;
+            color: var(--invoice-ink);
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+
+          .delivery-print-sheet .report-print-header {
+            --report-ink: #111;
+            --report-primary: #222;
+            --report-soft: #555;
+            --report-border: #888;
+            color: #111;
+          }
+
+          .delivery-print-sheet .report-header-card,
+          .delivery-print-sheet .invoice-overview,
+          .delivery-print-sheet .invoice-items-panel,
+          .delivery-print-sheet .delivery-signatures {
+            border-color: #777;
+            background: #fff;
+            color: #111;
+            box-shadow: none;
+          }
+
+          .delivery-print-sheet .report-brand-mark {
+            background: #222 !important;
+            border-color: #777 !important;
+            color: #fff;
+          }
+
+          .delivery-print-sheet .report-brand-mark img {
+            filter: grayscale(1);
+          }
+
+          .delivery-print-sheet .report-badge,
+          .delivery-print-sheet .report-filter,
+          .delivery-print-sheet .invoice-section-head > span {
+            border-color: #999;
+            background: #eee;
+            color: #222;
+          }
+
+          .delivery-print-sheet .invoice-section-head,
+          .delivery-print-sheet .invoice-table th {
+            border-color: #888;
+            background: #eee;
+            color: #222;
+          }
+
+          .delivery-print-sheet .invoice-table td,
+          .delivery-print-sheet .delivery-signatures-heading {
+            border-color: #aaa;
+          }
+
+          .delivery-print-sheet .invoice-table td small,
+          .delivery-print-sheet .invoice-meta dt,
+          .delivery-print-sheet .invoice-kicker,
+          .delivery-print-sheet .delivery-signatures-heading p,
+          .delivery-print-sheet .delivery-signature h3 span,
+          .delivery-print-sheet .delivery-signature-fields span,
+          .delivery-print-sheet .invoice-no-data {
+            color: #555;
+          }
+
+          .delivery-print-sheet .invoice-title-row h1,
+          .delivery-print-sheet .invoice-meta dd,
+          .delivery-print-sheet .invoice-section-head h2,
+          .delivery-print-sheet .invoice-table td strong,
+          .delivery-print-sheet .delivery-signatures-heading h2,
+          .delivery-print-sheet .delivery-signature h3,
+          .delivery-print-sheet .report-title-block h2,
+          .delivery-print-sheet .report-range strong,
+          .delivery-print-sheet .report-filter strong,
+          .delivery-print-sheet .report-generated strong {
+            color: #111;
+          }
+
+          .delivery-print-sheet .delivery-signature-fields span {
+            border-color: #555;
+          }
+
+          .delivery-print-sheet .invoice-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+          }
+
+          .delivery-print-sheet .invoice-overview {
+            padding: 14px 16px;
+            margin-bottom: 9mm;
+            border: 1px solid var(--invoice-border);
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: none;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .delivery-print-sheet .invoice-meta {
+            gap: 12px 18px;
+            margin-top: 14px;
+          }
+
+          .delivery-print-sheet .invoice-items-panel {
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: none;
+            break-inside: auto;
+            page-break-inside: auto;
+          }
+
+          .delivery-print-sheet .invoice-section-head {
+            padding: 9px 12px;
+          }
+
+          .delivery-print-sheet .invoice-table th {
+            padding: 6px 9px;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+
+          .delivery-print-sheet .invoice-table td {
+            padding: 7px 9px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .delivery-print-sheet .invoice-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .delivery-print-sheet .delivery-signatures {
+            margin-top: 8mm;
+            padding: 6mm 7mm 5mm;
+            border-radius: 7px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .delivery-print-sheet .delivery-signatures-grid {
+            gap: 12mm;
+            padding-top: 5mm;
+          }
+
+          .delivery-print-sheet .delivery-signature-space {
+            height: 24mm;
+          }
+        }
+      `}</style>
     </div>
   );
 }
