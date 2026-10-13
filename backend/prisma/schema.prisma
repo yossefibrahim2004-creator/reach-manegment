@@ -53,6 +53,11 @@ enum CustomerType {
   COMPANY
 }
 
+enum DebtMovementType {
+  INCREASE
+  PAYMENT
+}
+
 enum ChangeRequestType {
   EDIT
   FULL_RETURN
@@ -312,12 +317,30 @@ model Customer {
   deletedAt               DateTime?
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
+  currentDebt             Decimal               @default(0) @db.Decimal(18, 2)
   invoices                Invoice[]
   proposedChangeRequests  InvoiceChangeRequest[] @relation("ProposedCustomer")
+  debtMovements           CustomerDebtMovement[]
 
   @@index([name])
   @@index([phone])
   @@index([isActive])
+}
+
+model CustomerDebtMovement {
+  id             Int               @id @default(autoincrement())
+  customerId     Int
+  customer       Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  employeeId     Int
+  employee       Employee          @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  type           DebtMovementType
+  amount         Decimal           @db.Decimal(18, 2)
+  balanceAfter   Decimal           @db.Decimal(18, 2)
+  note           String
+  createdAt      DateTime          @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([employeeId, createdAt])
 }
 
 model Invoice {
@@ -576,6 +599,7 @@ model Employee {
   deliveredInvoices         Invoice[]                @relation("DeliveredByEmployee")
   attendance                Attendance[]
   expenses                  Expense[]
+  customerDebtMovements     CustomerDebtMovement[]
   requestedChanges          InvoiceChangeRequest[]   @relation("RequestedBy")
   reviewedChanges           InvoiceChangeRequest[]   @relation("ReviewedBy")
   invoiceAuditLogs          InvoiceAuditLog[]

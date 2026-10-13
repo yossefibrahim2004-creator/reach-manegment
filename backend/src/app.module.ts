@@ -23,6 +23,7 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { StockItemsModule } from './stock-items/stock-items.module';
 import { WorkplacesModule } from './workplaces/workplaces.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { CustomerDebtsModule } from './customer-debts/customer-debts.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     EmployeesModule,
     WorkplacesModule,
     RealtimeModule,
+    CustomerDebtsModule,
     CategoriesModule,
     ProductModelsModule,
     ProductUnitsModule,

@@ -9,6 +9,7 @@ import AdminInvoices from "./pages/admin/Invoices";
 import AdminExpenses from "./pages/admin/Expenses";
 import AdminSuppliers from "./pages/admin/Suppliers";
 import AdminCustomers from "./pages/admin/Customers";
+import AdminCustomerDebts from "./pages/admin/CustomerDebts";
 import AdminInvoiceDetail from "./pages/admin/InvoiceDetail";
 import PendingPricingQueue from "./pages/admin/StockPricing";
 import {
@@ -217,6 +218,7 @@ export default function App() {
                     <Route path="expenses" element={<AdminExpenses />} />
                     <Route path="suppliers" element={<AdminSuppliers />} />
                     <Route path="customers" element={<AdminCustomers />} />
+                    <Route path="customer-debts" element={<AdminCustomerDebts />} />
                  <Route path="unit-search" element={<UnitSearch />} />
                     <Route path="stock-pricing" element={<PendingPricingQueue />} />
                     <Route path="stock-adjustments" element={<StockAdjustments />} />

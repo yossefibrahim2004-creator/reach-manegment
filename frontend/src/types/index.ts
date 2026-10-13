@@ -175,6 +175,29 @@ export interface Customer {
   createdAt: string;
 }
 
+export type DebtMovementType = "INCREASE" | "PAYMENT";
+
+export interface CustomerDebt {
+  id: number;
+  name: string;
+  phone?: string | null;
+  type: "INDIVIDUAL" | "COMPANY";
+  isActive: boolean;
+  currentDebt: number | string;
+}
+
+export interface CustomerDebtMovement {
+  id: number;
+  customerId: number;
+  employeeId: number;
+  type: DebtMovementType;
+  amount: number | string;
+  balanceAfter: number | string;
+  note: string;
+  createdAt: string;
+  employee?: Pick<Employee, "id" | "name">;
+}
+
 export interface InvoiceAuditLog {
   id: number;
   invoiceId: number;

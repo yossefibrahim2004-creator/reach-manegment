@@ -90,7 +90,7 @@ export default function Stock() {
   const [filterModel, setFilterModel] = React.useState("");
   const [filterStatus, setFilterStatus] = React.useState("");
   const [detailRow, setDetailRow] = React.useState<StockRow | null>(null);
-  const debouncedModel = useDebouncedValue(filterModel, 300);
+  const debouncedModel = useDebouncedValue(filterModel, 500);
   const limit = 15;
 
   React.useEffect(() => {
@@ -291,7 +291,6 @@ export default function Stock() {
               value={filterModel}
               onChange={(e) => {
                 setFilterModel(e.target.value);
-                setPage(1);
               }}
             />
           </div>

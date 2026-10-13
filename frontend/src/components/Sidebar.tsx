@@ -17,6 +17,7 @@ type NavKey =
   | "attendance"
   | "pendingInvoices"
   | "expenses"
+  | "customerDebts"
   | "reports"
   | "receiveShipment"
   | "inventory"
@@ -241,6 +242,7 @@ function getSections(
       label: labels.finance,
       items: [
         { to: "/admin/expenses", key: "expenses", icon: ICONS.money },
+        { to: "/admin/customer-debts", key: "customerDebts", icon: ICONS.money },
         { to: "/admin/reports/revenue", key: "reports", icon: ICONS.reports },
       ],
     },
