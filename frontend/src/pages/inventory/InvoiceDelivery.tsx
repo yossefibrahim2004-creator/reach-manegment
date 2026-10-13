@@ -5,7 +5,6 @@ import { notify } from "../../lib/notify";
 import { getFriendlyErrorMessage } from "../../lib/messages";
 import { getSuccessMessages } from "../../lib/success-messages";
 import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
 import { Table } from "../../components/ui/Table";
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -17,23 +16,62 @@ import PrintButton from "../../features/reports/components/PrintButton";
 import PrintHeader from "../../features/reports/components/PrintHeader";
 import type { Invoice, PaginatedResponse } from "../../types";
 
+/* ------------------------------------------------------------------ */
+/* Types                                                               */
+/* ------------------------------------------------------------------ */
+
+interface ScannedUnit {
+  barcode: string;
+  scannedAt: string;
+  scannedBy?: string;
+}
+
+interface SerializedLine {
+  invoiceItemId: number;
+  productModelId: number;
+  productModelName: string;
+  requiredQuantity: number;
+  scannedQuantity: number;
+  scannedUnits: ScannedUnit[];
+}
+
 interface DeliverySummary {
   invoiceId: number;
   invoiceNumber: string;
   status: string;
-  serializedLines: Array<{
-    invoiceItemId: number;
-    productModelId: number;
-    productModelName: string;
-    requiredQuantity: number;
-    scannedQuantity: number;
-    scannedUnits: Array<{ barcode: string; scannedAt: string; scannedBy?: string }>; 
-  }>;
+  serializedLines: SerializedLine[];
 }
+
+/* ------------------------------------------------------------------ */
+/* Helpers (pure functions: no reason to re-create them every render)  */
+/* ------------------------------------------------------------------ */
+
+const formatDate = (value: string | Date) =>
+  new Date(value).toLocaleDateString("en-GB");
+
+// 13/10/2026 — 14:45  (Latin digits + 24h so it prints the same on every machine)
+const formatDateTime = (value: Date) => {
+  const date = value.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const time = value.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${date} — ${time}`;
+};
+
+/* ------------------------------------------------------------------ */
+/* Component                                                           */
+/* ------------------------------------------------------------------ */
 
 export default function InvoiceDelivery() {
   const { t } = useI18n();
   const SUCCESS_MESSAGES = getSuccessMessages(t);
+
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [delivering, setDelivering] = useState<number | null>(null);
@@ -43,9 +81,12 @@ export default function InvoiceDelivery() {
   const [barcodeError, setBarcodeError] = useState("");
   const [scanLoading, setScanLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [printedAt, setPrintedAt] = useState<Date>(() => new Date());
 
   const detailAbortRef = useRef<AbortController | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement | null>(null);
+
+  /* ----------------------------- derived ---------------------------- */
 
   const serializedLines = deliverySummary?.serializedLines ?? [];
   const remainingScans = serializedLines.reduce(
@@ -55,6 +96,8 @@ export default function InvoiceDelivery() {
   const firstUnscannedItemId = serializedLines.find(
     (line) => line.scannedQuantity < line.requiredQuantity,
   )?.invoiceItemId;
+
+  /* ----------------------------- data ------------------------------- */
 
   const fetchInvoices = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -92,6 +135,8 @@ export default function InvoiceDelivery() {
     }
   }, []);
 
+  /* ----------------------------- effects ---------------------------- */
+
   useEffect(() => {
     const controller = new AbortController();
     void fetchInvoices(controller.signal);
@@ -113,9 +158,28 @@ export default function InvoiceDelivery() {
     }
   }, [detailLoading, selectedInvoice, deliverySummary]);
 
-  const openDelivery = useCallback((invoiceId: number) => {
-    void fetchInvoiceDelivery(invoiceId);
-  }, [fetchInvoiceDelivery]);
+  // Capture the REAL print moment. `beforeprint` fires on Ctrl+P and on window.print(),
+  // so the date on the paper is when it was printed, not when the page was opened.
+  useEffect(() => {
+    const stamp = () => setPrintedAt(new Date());
+    window.addEventListener("beforeprint", stamp);
+    return () => window.removeEventListener("beforeprint", stamp);
+  }, []);
+
+  /* ----------------------------- actions ---------------------------- */
+
+  const openDelivery = useCallback(
+    (invoiceId: number) => {
+      void fetchInvoiceDelivery(invoiceId);
+    },
+    [fetchInvoiceDelivery],
+  );
+
+  const closeModal = useCallback(() => {
+    setSelectedInvoice(null);
+    setDeliverySummary(null);
+    setBarcodeInput("");
+  }, []);
 
   const handleDeliver = async (invoiceId: number) => {
     setDelivering(invoiceId);
@@ -130,7 +194,7 @@ export default function InvoiceDelivery() {
       setDeliverySummary((current) =>
         current ? { ...current, status: "DELIVERED" } : current,
       );
-      fetchInvoices();
+      void fetchInvoices();
       notify.success(SUCCESS_MESSAGES.invoice.delivered);
     } catch (err) {
       const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
@@ -163,6 +227,8 @@ export default function InvoiceDelivery() {
       setScanLoading(false);
     }
   };
+
+  /* ----------------------------- table ------------------------------ */
 
   const columns = [
     {
@@ -205,7 +271,10 @@ export default function InvoiceDelivery() {
               const isSerialized = item.productModel?.isSerialized ?? false;
 
               return (
-                <div key={item.id} style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "12px" }}>
+                <div
+                  key={item.id}
+                  style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "12px" }}
+                >
                   <span style={{ color: "var(--ink)", fontWeight: 600 }}>{productName}</span>
                   <span style={{ color: "var(--soft)", fontVariantNumeric: "tabular-nums" }}>
                     {isSerialized
@@ -233,14 +302,24 @@ export default function InvoiceDelivery() {
       align: "right" as const,
       render: (row: Invoice) => (
         <div className="toolbar" style={{ justifyContent: "flex-end", marginBottom: 0 }}>
-          <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); openDelivery(row.id); }}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              openDelivery(row.id);
+            }}
+          >
             {t.view}
           </Button>
           <Button
             variant="primary"
             size="sm"
             loading={delivering === row.id}
-            onClick={(e) => { e.stopPropagation(); void handleDeliver(row.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleDeliver(row.id);
+            }}
           >
             {t.markDelivered}
           </Button>
@@ -249,12 +328,11 @@ export default function InvoiceDelivery() {
     },
   ];
 
+  /* ----------------------------- render ----------------------------- */
+
   return (
     <div>
-      <PageHeader
-        title={t.pages.invoiceDelivery}
-        subtitle={t.pages.invoiceDeliverySubtitle}
-      />
+      <PageHeader title={t.pages.invoiceDelivery} subtitle={t.pages.invoiceDeliverySubtitle} />
 
       {loading ? (
         <div className="state-block">
@@ -265,7 +343,16 @@ export default function InvoiceDelivery() {
           title={t.invoices.noInvoices}
           description={t.noInvoicesPendingDelivery}
           icon={
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="40"
+              height="40"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           }
@@ -278,14 +365,15 @@ export default function InvoiceDelivery() {
         />
       )}
 
+      {/* ------------------------- Detail modal ------------------------- */}
       <Modal
         isOpen={!!selectedInvoice}
-        onClose={() => {
-          setSelectedInvoice(null);
-          setDeliverySummary(null);
-          setBarcodeInput("");
-        }}
-        title={selectedInvoice ? `${t.invoices.invoiceNumber} ${selectedInvoice.invoiceNumber}` : t.invoiceDetails}
+        onClose={closeModal}
+        title={
+          selectedInvoice
+            ? `${t.invoices.invoiceNumber} ${selectedInvoice.invoiceNumber}`
+            : t.invoiceDetails
+        }
         footer={
           selectedInvoice ? (
             <>
@@ -296,16 +384,14 @@ export default function InvoiceDelivery() {
                   variant="primary"
                   loading={delivering === selectedInvoice.id}
                   disabled={remainingScans > 0}
-                  onClick={() => { void handleDeliver(selectedInvoice.id); }}
+                  onClick={() => {
+                    void handleDeliver(selectedInvoice.id);
+                  }}
                 >
                   {t.markDelivered}
                 </Button>
               )}
-              <Button variant="secondary" onClick={() => {
-                setSelectedInvoice(null);
-                setDeliverySummary(null);
-                setBarcodeInput("");
-              }}>
+              <Button variant="secondary" onClick={closeModal}>
                 {t.close}
               </Button>
             </>
@@ -320,17 +406,22 @@ export default function InvoiceDelivery() {
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <div className="form-grid-wide" style={{ gap: "12px" }}>
               <div style={{ background: "var(--surface)", padding: "12px", borderRadius: "8px" }}>
-                <div style={{ fontSize: "11px", color: "var(--soft)", textTransform: "uppercase" }}>{t.customerName}</div>
+                <div style={{ fontSize: "11px", color: "var(--soft)", textTransform: "uppercase" }}>
+                  {t.customerName}
+                </div>
                 <div style={{ fontWeight: 600 }}>{selectedInvoice.customer?.name || "—"}</div>
               </div>
               <div style={{ background: "var(--surface)", padding: "12px", borderRadius: "8px" }}>
-                <div style={{ fontSize: "11px", color: "var(--soft)", textTransform: "uppercase" }}>{t.employeeName}</div>
+                <div style={{ fontSize: "11px", color: "var(--soft)", textTransform: "uppercase" }}>
+                  {t.employeeName}
+                </div>
                 <div style={{ fontWeight: 600 }}>{selectedInvoice.employee?.name || "—"}</div>
               </div>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <div style={{ fontWeight: 700, fontSize: "13px", color: "var(--ink)" }}>{t.products}</div>
+
               {(selectedInvoice.items ?? []).map((item) => {
                 const productName = item.productModel?.name || "Product";
                 const quantity = item.quantity ?? 1;
@@ -345,8 +436,13 @@ export default function InvoiceDelivery() {
                 const attachRef = needsScan && serializedLine?.invoiceItemId === firstUnscannedItemId;
 
                 return (
-                  <div key={item.id} style={{ border: "1px solid var(--border)", borderRadius: "8px", padding: "12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
+                  <div
+                    key={item.id}
+                    style={{ border: "1px solid var(--border)", borderRadius: "8px", padding: "12px" }}
+                  >
+                    <div
+                      style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}
+                    >
                       <div>
                         <div style={{ fontWeight: 600 }}>{productName}</div>
                         <div style={{ fontSize: "12px", color: "var(--soft)" }}>
@@ -363,15 +459,26 @@ export default function InvoiceDelivery() {
                         <div style={{ fontSize: "12px", color: "var(--soft)" }}>
                           {t.invoices.scanned} {serializedLine.scannedQuantity} / {serializedLine.requiredQuantity}
                         </div>
+
                         {serializedLine.scannedUnits.length > 0 && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                             {serializedLine.scannedUnits.map((unit) => (
-                              <span key={unit.barcode} style={{ background: "var(--mint-bg)", color: "var(--mint)", padding: "4px 8px", borderRadius: "999px", fontSize: "11px" }}>
+                              <span
+                                key={unit.barcode}
+                                style={{
+                                  background: "var(--mint-bg)",
+                                  color: "var(--mint)",
+                                  padding: "4px 8px",
+                                  borderRadius: "999px",
+                                  fontSize: "11px",
+                                }}
+                              >
                                 {unit.barcode}
                               </span>
                             ))}
                           </div>
                         )}
+
                         {needsScan && selectedInvoice.status !== "DELIVERED" && (
                           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             <div style={{ display: "flex", gap: "8px" }}>
@@ -400,12 +507,21 @@ export default function InvoiceDelivery() {
                                   color: "var(--ink)",
                                 }}
                               />
-                              <Button size="sm" loading={scanLoading} disabled={scanLoading} onClick={() => { void handleBarcodeScan(); }}>
+                              <Button
+                                size="sm"
+                                loading={scanLoading}
+                                disabled={scanLoading}
+                                onClick={() => {
+                                  void handleBarcodeScan();
+                                }}
+                              >
                                 {t.invoices.scan}
                               </Button>
                             </div>
                             {barcodeError && (
-                              <span style={{ fontFamily: "'Manrope', sans-serif", fontSize: "12px", color: "var(--accent)" }}>
+                              <span
+                                style={{ fontFamily: "'Manrope', sans-serif", fontSize: "12px", color: "var(--accent)" }}
+                              >
                                 {barcodeError}
                               </span>
                             )}
@@ -437,18 +553,19 @@ export default function InvoiceDelivery() {
         )}
       </Modal>
 
+      {/* -------------------------- Print sheet ------------------------- */}
       {selectedInvoice?.status === "DELIVERED" && (
         <div className="delivery-print-sheet invoice-page" dir="rtl" aria-hidden="true">
           <div className="invoice-container">
-            <PrintHeader
+            {/* <PrintHeader
               titleEn={`Delivery Note ${selectedInvoice.invoiceNumber}`}
               titleAr="إذن تسليم فاتورة"
-              range={{ from: new Date(selectedInvoice.date).toLocaleDateString("en-GB"), to: new Date(selectedInvoice.date).toLocaleDateString("en-GB") }}
+              range={{ from: formatDate(selectedInvoice.date), to: formatDate(selectedInvoice.date) }}
               filters={[
                 { label: t.invoices.customer, value: selectedInvoice.customer?.name || "—" },
                 { label: t.invoices.employee, value: selectedInvoice.employee?.name || "—" },
               ]}
-            />
+            /> */}
 
             <section className="invoice-panel invoice-overview">
               <div className="invoice-title-row">
@@ -461,7 +578,7 @@ export default function InvoiceDelivery() {
               <dl className="invoice-meta">
                 <div>
                   <dt>{t.date}</dt>
-                  <dd dir="ltr">{new Date(selectedInvoice.date).toLocaleDateString("en-GB")}</dd>
+                  <dd dir="ltr">{formatDate(selectedInvoice.date)}</dd>
                 </div>
                 <div>
                   <dt>{t.invoices.customer}</dt>
@@ -472,6 +589,15 @@ export default function InvoiceDelivery() {
                   <dd>{selectedInvoice.employee?.name || "—"}</dd>
                 </div>
               </dl>
+
+              <div className="print-date-box">
+                <span className="print-date-label">
+                  تاريخ ووقت الطباعة <small>Printed on</small>
+                </span>
+                <strong className="print-date-value" dir="ltr">
+                  {formatDateTime(printedAt)}
+                </strong>
+              </div>
             </section>
 
             <section className="invoice-panel invoice-items-panel">
@@ -483,6 +609,7 @@ export default function InvoiceDelivery() {
                 <table className="invoice-table">
                   <thead>
                     <tr>
+                      <th scope="col" className="cell-index">#</th>
                       <th scope="col">{t.invoices.product}</th>
                       <th scope="col" className="cell-center">{t.invoices.qty}</th>
                     </tr>
@@ -490,16 +617,17 @@ export default function InvoiceDelivery() {
                   <tbody>
                     {(selectedInvoice.items ?? []).length === 0 ? (
                       <tr>
-                        <td className="invoice-no-data" colSpan={2}>{t.invoices.noItems}</td>
+                        <td className="invoice-no-data" colSpan={3}>{t.invoices.noItems}</td>
                       </tr>
                     ) : (
                       selectedInvoice.items.map((item, index) => (
                         <tr key={String(item.id ?? item.productUnit?.barcode ?? index)}>
+                          <td className="cell-index numeric">{index + 1}</td>
                           <td>
-                            <strong>{item.productUnit?.productModel?.name || item.productModel?.name || "—"}</strong>
-                            {item.productUnit?.barcode && (
-                              <small dir="ltr">{item.productUnit.barcode}</small>
-                            )}
+                            <strong>
+                              {item.productUnit?.productModel?.name || item.productModel?.name || "—"}
+                            </strong>
+                            {item.productUnit?.barcode && <small dir="ltr">{item.productUnit.barcode}</small>}
                           </td>
                           <td className="cell-center numeric">
                             {item.quantity ?? 1}
@@ -520,28 +648,41 @@ export default function InvoiceDelivery() {
               </div>
               <div className="delivery-signatures-grid">
                 <div className="delivery-signature">
-                  <h3>المستلم <span>Received by</span></h3>
+                  <h3>
+                    المستلم <span>Received by</span>
+                  </h3>
                   <div className="delivery-signature-space" aria-hidden="true" />
                   <div className="delivery-signature-fields">
                     <span>الاسم</span>
                     <span>التوقيع</span>
+                  
                   </div>
                 </div>
                 <div className="delivery-signature">
-                  <h3>أمين المخزن <span>Issued by</span></h3>
+                  <h3>
+                    أمين المخزن <span>Issued by</span>
+                  </h3>
                   <div className="delivery-signature-space" aria-hidden="true" />
                   <div className="delivery-signature-fields">
                     <span>الاسم</span>
                     <span>التوقيع</span>
+                  
                   </div>
                 </div>
               </div>
             </section>
+
+            <footer className="delivery-print-footer">
+              <span>
+                {selectedInvoice.invoiceNumber} · طُبع في <bdi dir="ltr">{formatDateTime(printedAt)}</bdi>
+              </span>
+            </footer>
           </div>
         </div>
       )}
 
       <style>{`
+        /* ---------- Screen: the print sheet stays hidden ---------- */
         .delivery-print-sheet {
           display: none;
           --invoice-ink: #173f5f;
@@ -553,6 +694,7 @@ export default function InvoiceDelivery() {
           font-family: "Manrope", "Cairo", Arial, sans-serif;
         }
 
+        /* ---------- Overview ---------- */
         .delivery-print-sheet .invoice-overview {
           padding: 28px;
           margin-bottom: 22px;
@@ -594,6 +736,46 @@ export default function InvoiceDelivery() {
           font-weight: 600;
         }
 
+        /* ---------- Print date (the highlighted strip) ---------- */
+        .delivery-print-sheet .print-date-box {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-top: 22px;
+          padding: 12px 16px;
+          border: 1.5px solid var(--invoice-ink);
+          border-radius: 10px;
+          background: rgba(36, 123, 160, 0.07);
+        }
+
+        .delivery-print-sheet .print-date-label {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          color: var(--invoice-ink);
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .delivery-print-sheet .print-date-label small {
+          color: var(--invoice-soft);
+          font-size: 10px;
+          font-weight: 500;
+          direction: ltr;
+        }
+
+        .delivery-print-sheet .print-date-value {
+          color: var(--invoice-ink);
+          font-family: "Sora", "Manrope", sans-serif;
+          font-size: 17px;
+          font-weight: 800;
+          letter-spacing: 0.02em;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+
+        /* ---------- Items table ---------- */
         .delivery-print-sheet .invoice-items-panel {
           overflow: hidden;
           border: 1px solid var(--invoice-border);
@@ -663,6 +845,11 @@ export default function InvoiceDelivery() {
           text-align: center;
         }
 
+        .delivery-print-sheet .cell-index {
+          width: 44px;
+          text-align: center;
+        }
+
         .delivery-print-sheet .numeric {
           direction: ltr;
           font-variant-numeric: tabular-nums;
@@ -675,6 +862,7 @@ export default function InvoiceDelivery() {
           text-align: center;
         }
 
+        /* ---------- Signatures ---------- */
         .delivery-print-sheet .delivery-signatures {
           margin-top: 22px;
           padding: 20px 22px 18px;
@@ -742,6 +930,16 @@ export default function InvoiceDelivery() {
           font-size: 9px;
         }
 
+        /* ---------- Footer ---------- */
+        .delivery-print-sheet .delivery-print-footer {
+          display: flex;
+          justify-content: center;
+          margin-top: 14px;
+          color: var(--invoice-soft);
+          font-size: 10px;
+        }
+
+        /* ================== PRINT ================== */
         @media print {
           @page {
             size: A4;
@@ -777,14 +975,13 @@ export default function InvoiceDelivery() {
             -webkit-print-color-adjust: exact;
           }
 
-          .delivery-print-sheet .report-print-header {
-            --report-ink: #111;
-            --report-primary: #222;
-            --report-soft: #555;
-            --report-border: #888;
-            color: #111;
+          .delivery-print-sheet .invoice-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
           }
 
+          /* Shared "flat, black-and-white" look for every card */
           .delivery-print-sheet .report-header-card,
           .delivery-print-sheet .invoice-overview,
           .delivery-print-sheet .invoice-items-panel,
@@ -793,6 +990,15 @@ export default function InvoiceDelivery() {
             background: #fff;
             color: #111;
             box-shadow: none;
+          }
+
+          /* PrintHeader overrides */
+          .delivery-print-sheet .report-print-header {
+            --report-ink: #111;
+            --report-primary: #222;
+            --report-soft: #555;
+            --report-border: #888;
+            color: #111;
           }
 
           .delivery-print-sheet .report-brand-mark {
@@ -813,34 +1019,28 @@ export default function InvoiceDelivery() {
             color: #222;
           }
 
-          .delivery-print-sheet .invoice-section-head,
-          .delivery-print-sheet .invoice-table th {
-            border-color: #888;
-            background: #eee;
-            color: #222;
-          }
-
-          .delivery-print-sheet .invoice-table td,
-          .delivery-print-sheet .delivery-signatures-heading {
-            border-color: #aaa;
-          }
-
+          /* Secondary text */
           .delivery-print-sheet .invoice-table td small,
           .delivery-print-sheet .invoice-meta dt,
           .delivery-print-sheet .invoice-kicker,
           .delivery-print-sheet .delivery-signatures-heading p,
           .delivery-print-sheet .delivery-signature h3 span,
           .delivery-print-sheet .delivery-signature-fields span,
-          .delivery-print-sheet .invoice-no-data {
+          .delivery-print-sheet .invoice-no-data,
+          .delivery-print-sheet .print-date-label small,
+          .delivery-print-sheet .delivery-print-footer {
             color: #555;
           }
 
+          /* Primary text */
           .delivery-print-sheet .invoice-title-row h1,
           .delivery-print-sheet .invoice-meta dd,
           .delivery-print-sheet .invoice-section-head h2,
           .delivery-print-sheet .invoice-table td strong,
           .delivery-print-sheet .delivery-signatures-heading h2,
           .delivery-print-sheet .delivery-signature h3,
+          .delivery-print-sheet .print-date-label,
+          .delivery-print-sheet .print-date-value,
           .delivery-print-sheet .report-title-block h2,
           .delivery-print-sheet .report-range strong,
           .delivery-print-sheet .report-filter strong,
@@ -848,52 +1048,72 @@ export default function InvoiceDelivery() {
             color: #111;
           }
 
-          .delivery-print-sheet .delivery-signature-fields span {
-            border-color: #555;
-          }
-
-          .delivery-print-sheet .invoice-container {
-            width: 100%;
-            max-width: none;
-            margin: 0;
-          }
-
+          /* Overview */
           .delivery-print-sheet .invoice-overview {
             padding: 14px 16px;
-            margin-bottom: 9mm;
+            margin-bottom: 7mm;
             border: 1px solid var(--invoice-border);
             border-radius: 8px;
-            background: #fff;
-            box-shadow: none;
             break-inside: avoid;
             page-break-inside: avoid;
           }
 
-          .delivery-print-sheet .invoice-meta {
-            gap: 12px 18px;
-            margin-top: 14px;
+          .delivery-print-sheet .invoice-title-row h1 {
+            font-size: 24px;
           }
 
+          .delivery-print-sheet .invoice-meta {
+            gap: 12px 18px;
+            margin-top: 12px;
+          }
+
+          /* Print date: bold, boxed, and survives B&W printers (no colour dependency) */
+          .delivery-print-sheet .print-date-box {
+            margin-top: 12px;
+            padding: 8px 12px;
+            border: 1.5px solid #111;
+            border-radius: 6px;
+            background: #f1f1f1;
+          }
+
+          .delivery-print-sheet .print-date-label {
+            font-size: 12px;
+          }
+
+          .delivery-print-sheet .print-date-value {
+            font-size: 15px;
+          }
+
+          /* Table */
           .delivery-print-sheet .invoice-items-panel {
             border-radius: 8px;
-            background: #fff;
-            box-shadow: none;
             break-inside: auto;
             page-break-inside: auto;
           }
 
           .delivery-print-sheet .invoice-section-head {
             padding: 9px 12px;
+            border-color: #888;
+            background: #eee;
+            color: #222;
+          }
+
+          .delivery-print-sheet .invoice-table thead {
+            display: table-header-group; /* repeat header on every page */
           }
 
           .delivery-print-sheet .invoice-table th {
             padding: 6px 9px;
+            border-color: #888;
+            background: #eee;
+            color: #222;
             print-color-adjust: exact;
             -webkit-print-color-adjust: exact;
           }
 
           .delivery-print-sheet .invoice-table td {
             padding: 7px 9px;
+            border-color: #aaa;
             break-inside: avoid;
             page-break-inside: avoid;
           }
@@ -903,12 +1123,17 @@ export default function InvoiceDelivery() {
             page-break-inside: avoid;
           }
 
+          /* Signatures */
           .delivery-print-sheet .delivery-signatures {
             margin-top: 8mm;
             padding: 6mm 7mm 5mm;
             border-radius: 7px;
             break-inside: avoid;
             page-break-inside: avoid;
+          }
+
+          .delivery-print-sheet .delivery-signatures-heading {
+            border-color: #aaa;
           }
 
           .delivery-print-sheet .delivery-signatures-grid {
@@ -918,6 +1143,16 @@ export default function InvoiceDelivery() {
 
           .delivery-print-sheet .delivery-signature-space {
             height: 24mm;
+          }
+
+          .delivery-print-sheet .delivery-signature-fields span {
+            border-color: #555;
+          }
+
+          .delivery-print-sheet .delivery-print-footer {
+            margin-top: 6mm;
+            padding-top: 3mm;
+            border-top: 1px dashed #999;
           }
         }
       `}</style>

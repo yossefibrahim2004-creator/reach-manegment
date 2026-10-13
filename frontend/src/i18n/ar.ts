@@ -584,6 +584,7 @@ const ar = {
     daily: "يومي",
     monthly: "شهري",
     print: "طباعة التقرير",
+    printIssueVoucher: "طباعة إذن الصرف",
     customerReport: "تقرير العملاء",
     supplierReport: "تقرير الموردين",
     showAllDetails: "عرض تفاصيل الكل",

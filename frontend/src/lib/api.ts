@@ -1,4 +1,5 @@
 import axios from "axios";
+import { expireSessionOnce } from "./sessionExpiry";
 import type {
   AxiosError,
   AxiosInstance,
@@ -48,6 +49,10 @@ function clearSessionAndRedirect() {
   window.location.replace(
     role === "ATTENDANCE_KIOSK" ? "/kiosk/login" : "/login"
   );
+}
+
+export function expireSessionAndRedirect() {
+  expireSessionOnce(clearSessionAndRedirect);
 }
 
 let isRefreshing = false;
@@ -108,7 +113,7 @@ api.interceptors.response.use(
     const refreshToken = localStorage.getItem("refreshToken");
 
     if (!refreshToken) {
-      clearSessionAndRedirect();
+      expireSessionAndRedirect();
       return Promise.reject(error);
     }
 
@@ -161,7 +166,7 @@ api.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError);
 
-      clearSessionAndRedirect();
+      expireSessionAndRedirect();
 
       return Promise.reject(refreshError);
     } finally {
@@ -169,5 +174,19 @@ api.interceptors.response.use(
     }
   }
 );
+
+export async function refreshRealtimeSession(): Promise<string> {
+  // The Axios 401 interceptor performs the refresh and retries this protected request.
+  await api.get("/auth/me");
+  const accessToken = getStoredAccessToken();
+  if (!accessToken) {
+    throw new Error("Authenticated session refresh did not return an access token");
+  }
+  return accessToken;
+}
+
+export function getStoredAccessToken(): string | null {
+  return localStorage.getItem("accessToken");
+}
 
 export default api;

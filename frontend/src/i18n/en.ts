@@ -584,6 +584,7 @@ const en = {
     daily: "Daily",
     monthly: "Monthly",
     print: "Print Report",
+    printIssueVoucher: "Print Issue Voucher",
     customerReport: "Customer Report",
     supplierReport: "Supplier Report",
     showAllDetails: "Show All Details",

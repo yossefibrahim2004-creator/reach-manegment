@@ -3,9 +3,10 @@ import { useI18n } from "../../../i18n/context";
 
 interface PrintButtonProps {
   onClick?: () => void;
+  label?: string;
 }
 
-export default function PrintButton({ onClick }: PrintButtonProps) {
+export default function PrintButton({ onClick, label }: PrintButtonProps) {
   const { t } = useI18n();
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -79,7 +80,7 @@ export default function PrintButton({ onClick }: PrintButtonProps) {
           <rect x="6" y="14" width="12" height="8" />
         </svg>
       )}
-      {isPrinting ? "Preparing..." : t.reports.print}
+      {isPrinting ? "Preparing..." : label ?? t.reports.print}
     </button>
   );
 }

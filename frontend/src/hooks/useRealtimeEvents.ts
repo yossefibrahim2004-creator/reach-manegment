@@ -1,6 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import {
+  expireSessionAndRedirect,
+  getStoredAccessToken,
+  refreshRealtimeSession,
+} from "../lib/api";
+import { startRealtimeConnection } from "./realtimeConnection";
 
 export interface RealtimeEvent {
   type: string;
@@ -15,15 +21,10 @@ const REALTIME_EVENT = "pos:realtime";
 export function useRealtimeEvents() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const token = user?.accessToken ?? null;
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    if (!token) return;
-
-    let stopped = false;
-    let reconnectTimer: number | undefined;
-    let controller: AbortController | undefined;
-    let reconnectDelay = 1000;
+    if (!userId || !user?.accessToken) return;
 
     const publish = (event: RealtimeEvent) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
@@ -48,45 +49,22 @@ export function useRealtimeEvents() {
       }
     };
 
-    const connect = async () => {
-      if (stopped) return;
-      controller = new AbortController();
-      try {
-        const response = await fetch("/api/realtime/events", {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-        });
-        if (!response.ok || !response.body) throw new Error("Realtime connection failed");
+    const stop = startRealtimeConnection({
+      getAccessToken: getStoredAccessToken,
+      refreshSession: refreshRealtimeSession,
+      onFrame: parseFrame,
+      onReconnected: () => void queryClient.invalidateQueries(),
+      onConnected: () => window.dispatchEvent(new CustomEvent("pos:realtime-reconnected")),
+      onPermanentError: (status) => {
+        window.dispatchEvent(
+          new CustomEvent("pos:realtime-connection-error", { detail: { status } }),
+        );
+        if (status === 401) expireSessionAndRedirect();
+      },
+    });
 
-        reconnectDelay = 1000;
-        window.dispatchEvent(new CustomEvent("pos:realtime-reconnected"));
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (!stopped) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const frames = buffer.split("\n\n");
-          buffer = frames.pop() ?? "";
-          frames.forEach(parseFrame);
-        }
-      } catch {
-        if (!stopped) {
-          reconnectTimer = window.setTimeout(connect, reconnectDelay);
-          reconnectDelay = Math.min(reconnectDelay * 2, 10000);
-        }
-      }
-    };
-
-    void connect();
-    return () => {
-      stopped = true;
-      controller?.abort();
-      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
-    };
-  }, [token, queryClient]);
+    return stop;
+  }, [userId, user?.accessToken, queryClient]);
 }
 
 export function useRealtimeRefresh(
@@ -94,8 +72,10 @@ export function useRealtimeRefresh(
   eventTypes?: readonly string[],
 ) {
   const callbackRef = useRef(callback);
-  callbackRef.current = callback;
 
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
   useEffect(() => {
     const listener = (event: Event) => {
       const realtimeEvent = (event as CustomEvent<RealtimeEvent>).detail;

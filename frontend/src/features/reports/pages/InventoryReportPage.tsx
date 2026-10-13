@@ -251,7 +251,7 @@ export default function InventoryReportPage() {
             placeholder={t.reports.searchProducts || "Search products..."}
           />
         </div>
-        <PrintButton onClick={requestPrint} />
+        <PrintButton onClick={requestPrint} label={t.reports.printIssueVoucher} />
         <ExcelExportButton filename="inventory-report" rows={data?.items ?? []} sheetName="Inventory" />
       </div>
 
