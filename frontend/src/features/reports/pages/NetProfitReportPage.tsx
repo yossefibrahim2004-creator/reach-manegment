@@ -5,6 +5,7 @@ import { LoadingSpinner } from "../../../components/ui/LoadingSpinner";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { useI18n } from "../../../i18n/context";
 import { useReportPrint } from "../hooks/useReportPrint";
+import { formatPrintNumber } from "../../printing/utils/formatters";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
@@ -12,12 +13,11 @@ import ReportKpiCard from "../components/ReportKpiCard";
 import DateRangePicker from "../../../components/ui/DateRangePicker";
 import type { NetProfitReportResponse } from "../types";
 
-const fmt = (n: number) =>
-  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = formatPrintNumber;
 
 export default function NetProfitReportPage() {
   const { t } = useI18n();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -37,10 +37,11 @@ export default function NetProfitReportPage() {
       if (printLimit) notifyReady();
     } catch (err) {
       if (isAbortError(err)) return;
+      if (printLimit) notifyFailed();
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, printLimit, notifyReady]);
+  }, [dateFrom, dateTo, printLimit, notifyReady, notifyFailed]);
 
   useEffect(() => {
     const controller = new AbortController();

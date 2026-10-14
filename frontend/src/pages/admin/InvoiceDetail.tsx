@@ -8,33 +8,19 @@ import { getSuccessMessages } from "../../lib/success-messages";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Modal } from "../../components/ui/Modal";
-import { StatusChip } from "../../components/ui/StatusChip";
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 import { useI18n } from "../../i18n/context";
 import { useSettings } from "../../lib/settings";
 import BrandLogo from "../../components/BrandLogo";
 import PrintButton from "../../features/reports/components/PrintButton";
-import PrintHeader from "../../features/reports/components/PrintHeader";
+import InvoiceDocument from "../../features/printing/components/InvoiceDocument";
+import DisbursementVoucherDocument from "../../features/printing/components/DisbursementVoucherDocument";
+import { createInvoiceDocumentData } from "../../features/printing/utils/invoiceDocumentData";
+import { createDisbursementVoucherData } from "../../features/printing/utils/disbursementVoucherData";
+import { prepareAndPrint } from "../../features/printing/utils/printDocument";
 import type { Invoice, InvoiceAuditLog } from "../../types";
 
-const formatMoney = (value: unknown) => Number(value ?? 0).toFixed(2);
-
-const formatDate = (value: string | Date) =>
-  new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
-
-const formatDateTime = (value: string | Date) =>
-  new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
+type PendingAction = "confirm" | "reject" | null;
 
 export default function AdminInvoiceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -47,18 +33,18 @@ export default function AdminInvoiceDetail() {
   const [auditLogs, setAuditLogs] = useState<InvoiceAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [auditLoading, setAuditLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectReasonError, setRejectReasonError] = useState("");
+  const [issueVoucherPrintedAt, setIssueVoucherPrintedAt] = useState<Date | null>(
+    null,
+  );
+  const [invoicePrintRequestedAt, setInvoicePrintRequestedAt] =
+    useState<Date | null>(null);
 
   const loadInvoice = useCallback(
     async (signal?: AbortSignal) => {
-      if (!id) {
-        setInvoice(null);
-        setLoading(false);
-        return;
-      }
       try {
         const response = await api.get(`/invoices/${id}`, { signal });
         setInvoice(response.data);
@@ -74,11 +60,6 @@ export default function AdminInvoiceDetail() {
 
   const loadAudit = useCallback(
     async (signal?: AbortSignal) => {
-      if (!id) {
-        setAuditLogs([]);
-        setAuditLoading(false);
-        return;
-      }
       try {
         const response = await api.get(`/audit/invoices/${id}`, { signal });
         setAuditLogs(Array.isArray(response.data) ? response.data : []);
@@ -99,6 +80,8 @@ export default function AdminInvoiceDetail() {
 
   useEffect(() => {
     if (!id) {
+      setInvoice(null);
+      setAuditLogs([]);
       setLoading(false);
       setAuditLoading(false);
       return;
@@ -108,14 +91,51 @@ export default function AdminInvoiceDetail() {
     void loadInvoice(controller.signal);
     void loadAudit(controller.signal);
 
-    return () => {
-      controller.abort();
-    };
+    return () => controller.abort();
   }, [id, loadInvoice, loadAudit]);
+
+  // Print flow: blank the browser's own printed page title during print
+  // (handled inside prepareAndPrint) — here we only clean up print state.
+  useEffect(() => {
+    if (!issueVoucherPrintedAt && !invoicePrintRequestedAt) return;
+
+    const finishPrint = () => {
+      setIssueVoucherPrintedAt(null);
+      setInvoicePrintRequestedAt(null);
+    };
+
+    window.addEventListener("afterprint", finishPrint);
+    const printTimer = window.setTimeout(() => {
+      void prepareAndPrint().catch(() => {
+        finishPrint();
+        notify.error(t.reports.printPrepareFailed);
+      });
+    }, 100);
+
+    return () => {
+      window.clearTimeout(printTimer);
+      window.removeEventListener("afterprint", finishPrint);
+    };
+  }, [
+    issueVoucherPrintedAt,
+    invoicePrintRequestedAt,
+    t.reports.printPrepareFailed,
+  ]);
+
+  const closeRejectModal = useCallback(() => {
+    setRejectModalOpen(false);
+    setRejectReason("");
+    setRejectReasonError("");
+  }, []);
+
+  const openRejectModal = () => {
+    setRejectReasonError("");
+    setRejectModalOpen(true);
+  };
 
   const handleConfirm = async () => {
     if (!invoice) return;
-    setActionLoading(true);
+    setPendingAction("confirm");
     try {
       await api.patch(`/invoices/${invoice.id}/confirm`);
       notify.success(SUCCESS_MESSAGES.invoice.confirmed);
@@ -123,46 +143,132 @@ export default function AdminInvoiceDetail() {
     } catch (err) {
       notify.error(getFriendlyErrorMessage(err, t));
     } finally {
-      setActionLoading(false);
+      setPendingAction(null);
     }
   };
 
   const handleReject = async () => {
     if (!invoice) return;
-    if (!rejectReason.trim()) {
+    const reason = rejectReason.trim();
+    if (!reason) {
       setRejectReasonError(t.errors.common.reasonRequired);
       return;
     }
     setRejectReasonError("");
-    setActionLoading(true);
+    setPendingAction("reject");
     try {
-      await api.patch(`/invoices/${invoice.id}/reject`, { reason: rejectReason.trim() });
-      setRejectModalOpen(false);
-      setRejectReason("");
+      await api.patch(`/invoices/${invoice.id}/reject`, { reason });
+      closeRejectModal();
       notify.warning(SUCCESS_MESSAGES.invoice.rejected);
       refresh();
     } catch (err) {
       notify.error(getFriendlyErrorMessage(err, t));
     } finally {
-      setActionLoading(false);
+      setPendingAction(null);
     }
   };
 
-  const invoiceDate = useMemo(
-    () => (invoice ? formatDate(invoice.date) : ""),
-    [invoice],
+  const statusLabels = useMemo<Record<string, string>>(
+    () => ({
+      PENDING_ACCOUNTANT: t.statusLabels.pendingAccountant,
+      CONFIRMED: t.statusLabels.confirmed,
+      DELIVERED: t.statusLabels.delivered,
+      CANCELLED: t.statusLabels.cancelled,
+    }),
+    [t.statusLabels],
   );
 
-  const items = invoice?.items ?? [];
+  const invoiceDocumentData = useMemo(
+    () =>
+      invoice
+        ? createInvoiceDocumentData(
+            invoice,
+            auditLogs,
+            invoicePrintRequestedAt ?? undefined,
+            (action) =>
+              t.auditHistory.actions?.[
+                action as keyof typeof t.auditHistory.actions
+              ] ?? action,
+            (status) => statusLabels[status] ?? t.statusLabels.cancelled,
+          )
+        : null,
+    [
+      invoice,
+      auditLogs,
+      invoicePrintRequestedAt,
+      t.auditHistory.actions,
+      t.statusLabels.cancelled,
+      statusLabels,
+    ],
+  );
+
+  const documentLabels = useMemo(
+    () => ({
+      title: "", // no title text at the top of the printed document
+      invoice: t.newInvoice.invoiceNumber,
+      date: t.date,
+      customer: t.invoices.customer,
+      employee: t.invoices.employee,
+      status: t.status,
+      payment: t.newInvoice.payment,
+      note: t.newInvoice.note,
+      items: t.invoices.invoiceItems,
+      product: t.invoices.product,
+      quantity: t.invoices.qty,
+      price: t.newInvoice.price,
+      lineTotal: t.invoices.currentTotal,
+      summary: "الملخص المالي · Summary",
+      originalTotal: t.invoices.originalTotal,
+      currentTotal: t.invoices.currentTotal,
+      discountPercent: t.newInvoice.discountPercent,
+      discountAmount: t.newInvoice.discount,
+      audit: t.pages.auditHistory,
+      noAudit: t.invoices.noAuditEntries,
+      noItems: t.invoices.noItems,
+      draft: t.newInvoice.draft,
+      billTo: t.newInvoice.billTo,
+      subtotal: t.newInvoice.subtotal,
+      printedAt: t.reports.printDate,
+      meter: t.uom.METER,
+      sl: t.printing.sl,
+      total: t.printing.total,
+      query: t.printing.query,
+      authorisedSignature: t.printing.authorisedSignature,
+    }),
+    [t],
+  );
+
+  const voucherLabels = useMemo(
+    () => ({
+      title: t.reports.issueVoucher,
+      invoiceDate: t.date,
+      customer: t.invoices.customer,
+      employee: t.invoices.employee,
+      printDate: t.reports.printDate,
+      items: t.invoices.invoiceItems,
+      product: t.invoices.product,
+      quantity: t.invoices.qty,
+      noItems: t.invoices.noItems,
+      meter: t.uom.METER,
+      note: t.newInvoice.note,
+      sl: t.printing.sl,
+      unit: t.printing.unit,
+      piece: t.printing.piece,
+      query: t.printing.query,
+      receiptStatement: t.printing.receiptStatement,
+      preparedBy: t.printing.preparedBy,
+      approvedBy: t.printing.approvedBy,
+      receivedBy: t.printing.receivedBy,
+      name: t.printing.name,
+      signature: t.printing.signature,
+    }),
+    [t],
+  );
 
   if (loading) {
     return (
       <>
-        <div
-          className="invoice-state"
-          role="status"
-          aria-label="Loading invoice"
-        >
+        <div className="invoice-state" role="status" aria-label="Loading">
           <LoadingSpinner size={32} />
         </div>
         <InvoiceStyles />
@@ -172,12 +278,9 @@ export default function AdminInvoiceDetail() {
 
   if (!invoice) {
     return (
-      <div className="invoice-state invoice-empty">
+      <div className="invoice-state invoice-empty" dir="rtl">
         <p>{t.invoices.invoiceNotFound}</p>
-        <Button
-          variant="secondary"
-          onClick={() => navigate("/admin/invoices")}
-        >
+        <Button variant="secondary" onClick={() => navigate("/admin/invoices")}>
           {t.invoices.backToSearch}
         </Button>
         <InvoiceStyles />
@@ -185,13 +288,14 @@ export default function AdminInvoiceDetail() {
     );
   }
 
+  const isPending = invoice.status === "PENDING_ACCOUNTANT";
+  const canRequestChange =
+    invoice.status === "CONFIRMED" || invoice.status === "DELIVERED";
+
   return (
     <div className="invoice-page" dir="rtl">
       <div className="invoice-ambient invoice-ambient-top" aria-hidden="true" />
-      <div
-        className="invoice-ambient invoice-ambient-side"
-        aria-hidden="true"
-      />
+      <div className="invoice-ambient invoice-ambient-side" aria-hidden="true" />
 
       <div className="invoice-container">
         <header className="invoice-toolbar no-print">
@@ -199,12 +303,12 @@ export default function AdminInvoiceDetail() {
             <BrandLogo size={42} radius={10} />
             <span>
               <strong>{brand.businessName}</strong>
-              <small>{t.invoiceDesk} · Invoice Desk</small>
+              <small>{t.invoiceDesk}</small>
             </span>
           </div>
 
           <div className="invoice-actions">
-            {invoice.status === "CONFIRMED" || invoice.status === "DELIVERED" ? (
+            {canRequestChange && (
               <>
                 <Button
                   variant="secondary"
@@ -223,24 +327,22 @@ export default function AdminInvoiceDetail() {
                   {t.invoices.requestReturn}
                 </Button>
               </>
-            ) : null}
+            )}
 
-            {invoice.status === "PENDING_ACCOUNTANT" && (
+            {isPending && (
               <>
                 <Button
                   variant="danger"
-                  loading={actionLoading}
-                  onClick={() => {
-                    setRejectReasonError("");
-                    setRejectModalOpen(true);
-                  }}
+                  disabled={pendingAction !== null}
+                  onClick={openRejectModal}
                 >
                   {t.changeRequests.reject}
                 </Button>
 
                 <Button
                   variant="primary"
-                  loading={actionLoading}
+                  loading={pendingAction === "confirm"}
+                  disabled={pendingAction !== null}
                   onClick={handleConfirm}
                 >
                   {t.confirm}
@@ -248,12 +350,15 @@ export default function AdminInvoiceDetail() {
               </>
             )}
 
-            <PrintButton />
+            <PrintButton onClick={() => setInvoicePrintRequestedAt(new Date())} />
+            {invoice.status === "DELIVERED" && (
+              <PrintButton
+                label={t.reports.printIssueVoucher}
+                onClick={() => setIssueVoucherPrintedAt(new Date())}
+              />
+            )}
 
-            <Button
-              variant="secondary"
-              onClick={() => navigate("/admin/invoices")}
-            >
+            <Button variant="secondary" onClick={() => navigate("/admin/invoices")}>
               <svg
                 aria-hidden="true"
                 width="17"
@@ -273,212 +378,43 @@ export default function AdminInvoiceDetail() {
         </header>
 
         <div className="print-area">
-          <PrintHeader
-            titleEn={`Invoice ${invoice.invoiceNumber}`}
-            titleAr={t.invoices.salesInvoice}
-            range={{ from: invoiceDate, to: invoiceDate }}
-            filters={[
-              {
-                label: t.invoices.customer,
-                value: invoice.customer?.name || "—",
-              },
-              {
-                label: t.status,
-                value: invoice.status || "—",
-              },
-            ]}
-          />
-
-          <section className="invoice-panel invoice-overview">
-            <div className="invoice-title-row">
-              <div>
-                <p className="invoice-kicker">فاتورة · INVOICE</p>
-                <h1 dir="ltr">{invoice.invoiceNumber}</h1>
-              </div>
-              <StatusChip status={invoice.status} />
-            </div>
-
-            <dl className="invoice-meta">
-              <div>
-                <dt>{t.date}</dt>
-                <dd dir="ltr">{invoiceDate}</dd>
-              </div>
-
-              <div>
-                <dt>{t.invoices.customer}</dt>
-                <dd>{invoice.customer?.name || "—"}</dd>
-              </div>
-
-              <div>
-                <dt>{t.invoices.employee}</dt>
-                <dd>{invoice.employee?.name || "—"}</dd>
-              </div>
-
-              <div>
-                <dt>{t.status}</dt>
-                <dd>{invoice.status}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="invoice-panel invoice-items-panel">
-            <div className="invoice-section-head">
-              <h2>{t.invoices.invoiceItems}</h2>
-              <span aria-label={`${items.length}`}>{items.length}</span>
-            </div>
-
-            <div className="invoice-table-wrap">
-              <table className="invoice-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{t.invoices.product}</th>
-                    <th scope="col" className="cell-center">
-                      {t.invoices.qty}
-                    </th>
-                    <th scope="col" className="cell-end">
-                      {t.newInvoice.price}
-                    </th>
-                    <th scope="col" className="cell-end">
-                      {t.invoices.currentTotal}
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {items.length === 0 ? (
-                    <tr>
-                      <td className="invoice-no-data" colSpan={4}>
-                        {t.invoices.noItems}
-                      </td>
-                    </tr>
-                  ) : (
-                    items.map((item: any, index) => {
-                      const quantity = Number(item.quantity ?? 1);
-                      const price = Number(item.price ?? 0);
-                      const itemTotal = price * quantity;
-
-                      return (
-                        <tr
-                          key={String(
-                            item.id ??
-                              item.productUnit?.barcode ??
-                              index,
-                          )}
-                        >
-                          <td>
-                            <strong>
-                              {item.productUnit?.productModel?.name ||
-                                item.productModel?.name ||
-                                "—"}
-                            </strong>
-
-                            {item.productUnit?.barcode && (
-                              <small dir="ltr">
-                                {item.productUnit.barcode}
-                              </small>
-                            )}
-                          </td>
-
-                          <td className="cell-center numeric">
-                            {quantity}
-                            {item.productModel?.unit === "METER" ? ` ${t.uom.METER}` : ""}
-                          </td>
-
-                          <td className="cell-end numeric">
-                            {t.currency} {formatMoney(price)}
-                          </td>
-
-                          <td className="cell-end numeric total-cell">
-                            {t.currency} {formatMoney(itemTotal)}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="invoice-summary">
-            <h2>الملخص المالي · Summary</h2>
-
-            <dl>
-              <div>
-                <dt>{t.invoices.originalTotal}</dt>
-                <dd>
-                  {t.currency} {formatMoney(invoice.originalTotal)}
-                </dd>
-              </div>
-
-              <div className="invoice-summary-total">
-                <dt>{t.invoices.currentTotal}</dt>
-                <dd>
-                  {t.currency} {formatMoney(invoice.currentTotal)}
-                </dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="invoice-panel invoice-audit">
-            <div className="invoice-section-head">
-              <h2>{t.pages.auditHistory}</h2>
-              <span aria-label={`${auditLogs.length}`}>
-                {auditLoading ? "…" : auditLogs.length}
-              </span>
-            </div>
-
-            {auditLoading ? (
-              <p className="invoice-no-data">
-                <LoadingSpinner size={20} />
-              </p>
-            ) : auditLogs.length === 0 ? (
-              <p className="invoice-no-data">{t.invoices.noAuditEntries}</p>
-            ) : (
-              <ol className="invoice-timeline">
-                {auditLogs.map((entry) => (
-                  <li key={String(entry.id)}>
-                    <span className="timeline-dot" aria-hidden="true" />
-
-                    <div>
-                      <strong>
-                        {t.auditHistory.actions?.[entry.action as keyof typeof t.auditHistory.actions] ?? entry.action}
-                      </strong>
-                      <small>{entry.employee?.name || "—"}</small>
-                    </div>
-
-                    <time dateTime={entry.timestamp} dir="ltr">
-                      {formatDateTime(entry.timestamp)}
-                    </time>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
+          {invoiceDocumentData && (
+            <InvoiceDocument
+              mode="saved"
+              data={invoiceDocumentData}
+              currency={t.currency}
+              auditLoading={auditLoading}
+              labels={documentLabels}
+            />
+          )}
         </div>
       </div>
 
+      {issueVoucherPrintedAt && (
+        <DisbursementVoucherDocument
+          data={createDisbursementVoucherData(invoice, issueVoucherPrintedAt)}
+          labels={voucherLabels}
+        />
+      )}
+
       <Modal
         isOpen={rejectModalOpen}
-        onClose={() => {
-          setRejectModalOpen(false);
-          setRejectReason("");
-          setRejectReasonError("");
-        }}
+        onClose={closeRejectModal}
         title={t.changeRequests.rejectTitle}
         footer={
           <>
             <Button
               variant="secondary"
-              onClick={() => {
-                setRejectModalOpen(false);
-                setRejectReason("");
-                setRejectReasonError("");
-              }}
+              disabled={pendingAction === "reject"}
+              onClick={closeRejectModal}
             >
               {t.cancel}
             </Button>
-            <Button variant="danger" loading={actionLoading} onClick={handleReject}>
+            <Button
+              variant="danger"
+              loading={pendingAction === "reject"}
+              onClick={handleReject}
+            >
               {t.changeRequests.reject}
             </Button>
           </>
@@ -571,18 +507,6 @@ function InvoiceStyles() {
         gap: 12px;
       }
 
-      .invoice-brand-mark {
-        display: grid;
-        width: 42px;
-        height: 42px;
-        place-items: center;
-        border-radius: 10px;
-        background: var(--invoice-ink);
-        color: #fff;
-        font-family: "Sora", sans-serif;
-        font-weight: 700;
-      }
-
       .invoice-brand strong,
       .invoice-brand small {
         display: block;
@@ -601,6 +525,7 @@ function InvoiceStyles() {
 
       .invoice-actions {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 8px;
       }
@@ -917,7 +842,6 @@ function InvoiceStyles() {
         }
 
         .invoice-actions {
-          flex-wrap: wrap;
           justify-content: flex-end;
         }
 
@@ -967,11 +891,6 @@ function InvoiceStyles() {
       }
 
       @media print {
-        @page {
-          size: A4;
-          margin: 10mm;
-        }
-
         .no-print,
         .invoice-ambient {
           display: none !important;

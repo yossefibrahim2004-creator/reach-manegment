@@ -13,16 +13,17 @@ import { useReportPrint } from "../hooks/useReportPrint";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
+import ReportPrintLimitWarning from "../components/ReportPrintLimitWarning";
+import { formatPrintDate, formatPrintNumber } from "../../printing/utils/formatters";
 import DateRangePicker from "../../../components/ui/DateRangePicker";
 import { ReportDetailPanel } from "../components/ReportDetailTable";
 import type { ProductSalesReportResponse } from "../types";
 
-const fmt = (n: number) =>
-  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = formatPrintNumber;
 
 export default function ProductSalesReportPage() {
   const { t } = useI18n();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -87,10 +88,11 @@ export default function ProductSalesReportPage() {
       if (printLimit) notifyReady();
     } catch (err) {
       if (isAbortError(err)) return;
+      if (printLimit) notifyFailed();
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, categoryFilter, productModelFilter, page, printLimit, notifyReady]);
+  }, [dateFrom, dateTo, categoryFilter, productModelFilter, page, printLimit, notifyReady, notifyFailed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -131,6 +133,7 @@ export default function ProductSalesReportPage() {
             ...(productModelFilter ? [{ label: t.reports.product, value: productModels.find((option) => option.value === productModelFilter)?.label || t.reports.selectedProduct }] : []),
           ]}
         />
+        <ReportPrintLimitWarning limit={printLimit} total={data?.meta.total} />
 
         {loading ? (
           <div className="state-block">
@@ -208,7 +211,7 @@ export default function ProductSalesReportPage() {
                 groupLabel={(groupKey) => `${t.reports.product}: ${groupKey}`}
                 detailColumns={[
                   { key: "invoiceNumber", label: t.invoices.invoiceNumber },
-                  { key: "invoiceDate", label: t.date, render: (item: any) => new Date(item.invoiceDate).toLocaleDateString() },
+                  { key: "invoiceDate", label: t.date, render: (item: any) => formatPrintDate(item.invoiceDate, navigator.language) },
                   { key: "customerName", label: t.invoices.customer },
                   { key: "productName", label: t.reports.product, render: (item: any) => item.productName ?? selectedProduct?.productModelName ?? "—" },
                   { key: "quantity", label: t.reports.qtySold, align: "right" },

@@ -14,22 +14,20 @@ import { useReportPrint } from "../hooks/useReportPrint";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
+import ReportPrintLimitWarning from "../components/ReportPrintLimitWarning";
 import DateRangePicker from "../../../components/ui/DateRangePicker";
 import { ReportDetailPanel } from "../components/ReportDetailTable";
+import { formatPrintDate, formatPrintNumber } from "../../printing/utils/formatters";
 import type {
   SupplierReportResponse,
   SupplierReportRow,
 } from "../types";
 
-const fmt = (n: number) =>
-  n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+const fmt = formatPrintNumber;
 
 export default function SupplierReportPage() {
   const { t } = useI18n();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
 
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
@@ -107,6 +105,7 @@ export default function SupplierReportPage() {
         }
       } catch (err) {
         if (isAbortError(err)) return;
+        if (printLimit) notifyFailed();
 
         // Error state preserved — data remains null
       } finally {
@@ -122,6 +121,7 @@ export default function SupplierReportPage() {
       supplierFilter,
       printLimit,
       notifyReady,
+      notifyFailed,
     ]
   );
 
@@ -358,6 +358,7 @@ export default function SupplierReportPage() {
               : []),
           ]}
         />
+        <ReportPrintLimitWarning limit={printLimit} total={data?.meta.total} />
 
         {loading ? (
           <div className="state-block">
@@ -547,9 +548,7 @@ export default function SupplierReportPage() {
                     key: "receiptDate",
                     label: t.date,
                     render: (item: any) =>
-                      new Date(
-                        item.receiptDate
-                      ).toLocaleDateString(),
+                      formatPrintDate(item.receiptDate, navigator.language),
                   },
                   {
                     key: "supplierName",

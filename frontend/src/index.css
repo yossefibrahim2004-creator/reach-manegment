@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./features/printing/print.css";
 
 /* ==========================================================================
    DESIGN TOKENS v3 — single source of truth.
@@ -632,7 +633,7 @@ input[type="datetime-local"] {
 }
 
 /* ==========================================================================
-   PRINTING — one unified block (replaces the old print.css as well)
+   PRINTING — shared application print rules plus the document stylesheet
    Paper is always light: dark-theme tokens are re-pointed to light values so
    a user printing from dark mode never gets dark cards or pale text.
    ========================================================================== */
@@ -641,18 +642,6 @@ input[type="datetime-local"] {
 }
 
 @media print {
-  @page {
-    size: A4 portrait;
-    margin: 15mm 12mm 18mm 12mm;
-
-    @bottom-center {
-      content: counter(page) " / " counter(pages);
-      font-size: 9px;
-      color: #8a90a5;
-      font-family: 'Manrope', sans-serif;
-    }
-  }
-
   /* Force light tokens even if the app is in dark mode */
   html[data-theme="dark"] {
     color-scheme: light;
@@ -863,20 +852,6 @@ input[type="datetime-local"] {
   /* Pagination is meaningless on paper */
   .print-area nav {
     display: none !important;
-  }
-
-  /* ─── Page footer with company info ─── */
-  .print-area::after {
-    content: var(--print-company, none);
-    display: block;
-    clear: both;
-    margin-top: 14px;
-    padding-top: 6px;
-    border-top: 1px solid var(--print-line-soft);
-    text-align: center;
-    font-size: 9px;
-    color: var(--print-muted);
-    font-family: "Manrope", "Cairo", Arial, sans-serif;
   }
 
   /* ─── RTL print support ─── */

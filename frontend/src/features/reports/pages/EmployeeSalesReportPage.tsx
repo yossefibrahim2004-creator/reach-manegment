@@ -13,16 +13,17 @@ import { useReportPrint } from "../hooks/useReportPrint";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
+import ReportPrintLimitWarning from "../components/ReportPrintLimitWarning";
 import DateRangePicker from "../../../components/ui/DateRangePicker";
 import { ReportDetailPanel } from "../components/ReportDetailTable";
+import { formatPrintDate, formatPrintNumber } from "../../printing/utils/formatters";
 import type { EmployeeSalesReportResponse } from "../types";
 
-const fmt = (n: number) =>
-  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = formatPrintNumber;
 
 export default function EmployeeSalesReportPage() {
   const { t } = useI18n();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -53,10 +54,11 @@ export default function EmployeeSalesReportPage() {
       if (printLimit) notifyReady();
     } catch (err) {
       if (isAbortError(err)) return;
+      if (printLimit) notifyFailed();
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, employeeFilter, page, printLimit, notifyReady]);
+  }, [dateFrom, dateTo, employeeFilter, page, printLimit, notifyReady, notifyFailed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -86,6 +88,7 @@ export default function EmployeeSalesReportPage() {
           range={{ from: dateFrom, to: dateTo }}
           filters={employeeFilter ? [{ label: t.reports.employee, value: employeeOptions.find((option) => option.value === employeeFilter)?.label || t.reports.selectedEmployee }] : []}
         />
+        <ReportPrintLimitWarning limit={printLimit} total={data?.meta.total} />
 
         {loading ? (
           <div className="state-block">
@@ -177,7 +180,7 @@ export default function EmployeeSalesReportPage() {
                 }
                 detailColumns={[
                   { key: "invoiceNumber", label: t.invoices.invoiceNumber },
-                  { key: "invoiceDate", label: t.date, render: (item: any) => new Date(item.invoiceDate).toLocaleDateString() },
+                  { key: "invoiceDate", label: t.date, render: (item: any) => formatPrintDate(item.invoiceDate, navigator.language) },
                   { key: "employeeName", label: t.reports.employee, render: (item: any) => item.employeeName ?? selectedEmployee?.employeeName ?? "—" },
                   { key: "customerName", label: t.invoices.customer },
                   { key: "productName", label: t.reports.product },

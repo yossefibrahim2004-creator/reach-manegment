@@ -11,15 +11,15 @@ import { useReportPrint } from "../hooks/useReportPrint";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
+import { formatPrintDate, formatPrintNumber } from "../../printing/utils/formatters";
 import DateRangePicker from "../../../components/ui/DateRangePicker";
 import type { ExpensesReportResponse } from "../types";
 
-const fmt = (n: number) =>
-  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = formatPrintNumber;
 
 export default function ExpensesReportPage() {
   const { t } = useI18n();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -44,12 +44,13 @@ export default function ExpensesReportPage() {
       if (printLimit) notifyReady();
     } catch (err) {
       if (isAbortError(err)) return;
+      if (printLimit) notifyFailed();
       setSummary(null);
       setRows([]);
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, page, printLimit, notifyReady]);
+  }, [dateFrom, dateTo, page, printLimit, notifyReady, notifyFailed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,7 +86,7 @@ export default function ExpensesReportPage() {
           >
             <Table
               columns={[
-                { key: "date", label: t.date, render: (item: any) => new Date(item.date).toLocaleDateString() },
+                { key: "date", label: t.date, render: (item: any) => formatPrintDate(item.date, navigator.language) },
                 { key: "categoryName", label: t.reports.category },
                 { key: "description", label: t.description },
                 { key: "employeeName", label: t.reports.employee },

@@ -12,16 +12,17 @@ import { useReportPrint } from "../hooks/useReportPrint";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
+import ReportPrintLimitWarning from "../components/ReportPrintLimitWarning";
+import { formatPrintDate, formatPrintNumber } from "../../printing/utils/formatters";
 import DateRangePicker from "../../../components/ui/DateRangePicker";
 import { ReportDetailPanel } from "../components/ReportDetailTable";
 import type { ReturnsReportResponse } from "../types";
 
-const fmt = (n: number) =>
-  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = formatPrintNumber;
 
 export default function ReturnsReportPage() {
   const { t } = useI18n();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -45,10 +46,11 @@ export default function ReturnsReportPage() {
       if (printLimit) notifyReady();
     } catch (err) {
       if (isAbortError(err)) return;
+      if (printLimit) notifyFailed();
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, page, printLimit, notifyReady]);
+  }, [dateFrom, dateTo, page, printLimit, notifyReady, notifyFailed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,6 +68,7 @@ export default function ReturnsReportPage() {
 
       <div className="print-area">
         <PrintHeader titleEn={t.reports.returns} titleAr={t.reports.returns} range={{ from: dateFrom, to: dateTo }} />
+        <ReportPrintLimitWarning limit={printLimit} total={data?.meta.total} />
 
         {loading ? (
           <div className="state-block">
@@ -130,7 +133,7 @@ export default function ReturnsReportPage() {
                 { key: "itemCount", label: t.items, align: "right" },
                 { key: "refundTotal", label: t.reports.refundTotal, align: "right", render: (r: any) => <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(r.refundTotal)}</span> },
                 { key: "reason", label: t.reports.reason },
-                { key: "createdAt", label: t.date, render: (r: any) => new Date(r.createdAt).toLocaleDateString() },
+                { key: "createdAt", label: t.date, render: (r: any) => formatPrintDate(r.createdAt, navigator.language) },
               ]}
               data={data.items}
               emptyMessage={t.reports.noReturns}

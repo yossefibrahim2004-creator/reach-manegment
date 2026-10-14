@@ -1,0 +1,851 @@
+@page report-landscape {
+  size: A4 landscape;
+  margin: 12mm;
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    color: #555;
+    font-family: "Manrope", "Cairo", Arial, sans-serif;
+    font-size: 9pt;
+  }
+}
+
+/* Default @page is provided by PrintDocumentLayout (4mm margin) for invoices/vouchers.
+   Reports use the named 'report-landscape' page above. */
+  size: A4 landscape;
+  margin: 12mm;
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    color: #555;
+    font-family: "Manrope", "Cairo", Arial, sans-serif;
+    font-size: 9pt;
+  }
+}
+
+/* ==========================================================================
+   PRINT DOCUMENT (invoice + disbursement voucher) — navy/blue reference style
+   ========================================================================== */
+.print-document {
+  --pn-navy: #0b1a4a;
+  --pn-blue: #1f78c8;
+  --pn-ink: #1a1a1a;
+  --pn-muted: #5a6275;
+  --pn-hair: rgba(11, 26, 74, 0.4);
+
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  color: var(--pn-ink);
+  font-family: "Cairo", "Manrope", Arial, sans-serif;
+}
+
+.print-document *,
+.print-document *::before,
+.print-document *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- Header band ---------------------------------------------------- */
+.print-document__header {
+  position: relative;
+  z-index: 2;
+  min-height: 34mm;
+  margin-bottom: 6mm;
+  overflow: hidden;
+  border-radius: 2mm;
+  background: #fff;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-document__header--print-only {
+  display: none;
+}
+
+.print-document__band {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.print-document__band-blue {
+  fill: var(--pn-blue);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.print-document__band-gap {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 36;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.print-document__band-navy {
+  fill: var(--pn-navy);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+/* RTL: mirror the curves; text/logo swap sides via flex order */
+[dir="rtl"] .print-document__band {
+  transform: scaleX(-1);
+}
+
+.print-document__header-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6mm;
+  min-height: 34mm;
+  padding: 4mm 8mm;
+}
+
+.print-document__header-title {
+  min-width: 0;
+}
+
+.print-document__header-title h1 {
+  margin: 0;
+  color: #ffffff;
+  font-family: "Manrope", "Cairo", Arial, sans-serif;
+  font-size: 30pt;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.print-document__header-title h1.print-document__title--long {
+  font-size: 19pt;
+  letter-spacing: 0.03em;
+}
+
+.print-document__header-title p {
+  margin: 1mm 0 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12pt;
+  font-weight: 600;
+}
+
+.print-document__subtitle {
+  display: block;
+  margin-top: 1mm;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 8pt;
+}
+
+.print-document__header-logo {
+  display: grid;
+  width: 20mm;
+  height: 20mm;
+  flex: 0 0 20mm;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 3mm;
+  background: #ffffff;
+  color: var(--pn-navy);
+  font: 800 20pt "Manrope", Arial, sans-serif;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.print-document__header-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.print-document__content {
+  min-width: 0;
+}
+
+/* ---------- Bill-to + meta ------------------------------------------------ */
+.pn-parties {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-bottom: 4mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pn-parties__bill-to {
+  min-width: 0;
+}
+
+.pn-parties__label {
+  display: block;
+  color: var(--pn-muted);
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pn-parties__name {
+  display: block;
+  margin-top: 1mm;
+  color: var(--pn-ink);
+  font-family: "Manrope", "Cairo", Arial, sans-serif;
+  font-size: 13pt;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.pn-parties__line {
+  display: block;
+  margin-top: 0.5mm;
+  color: var(--pn-muted);
+  font-size: 9pt;
+}
+
+.pn-parties__meta {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 1.5mm 5mm;
+  align-content: start;
+  flex: 0 0 auto;
+  font-size: 9pt;
+}
+
+.pn-parties__meta dt {
+  color: var(--pn-muted);
+  font-weight: 600;
+}
+
+.pn-parties__meta dd {
+  margin: 0;
+  color: var(--pn-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  white-space: nowrap;
+}
+
+/* ---------- Items table (invoice + voucher share the family) -------------- */
+.pn-items {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: start;
+}
+
+.pn-items thead th {
+  padding: 2.5mm 3mm;
+  background: var(--pn-navy);
+  color: #ffffff;
+  font-family: "Manrope", "Cairo", Arial, sans-serif;
+  font-size: 9pt;
+  font-weight: 600;
+  text-align: start;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.pn-items thead th:first-child {
+  border-start-start-radius: 4px;
+  border-end-start-radius: 4px;
+}
+
+.pn-items thead th:last-child {
+  border-start-end-radius: 4px;
+  border-end-end-radius: 4px;
+}
+
+.pn-items thead th.cell-center {
+  text-align: center;
+}
+
+.pn-items thead th.cell-end {
+  text-align: end;
+}
+
+.pn-items tbody td {
+  padding: 3mm 3mm;
+  border-bottom: 0.6pt solid var(--pn-hair);
+  color: var(--pn-ink);
+  font-size: 9.5pt;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.pn-items tbody tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pn-items .cell-sl {
+  width: 10mm;
+  color: var(--pn-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.pn-items .cell-product strong {
+  display: block;
+  font-weight: 700;
+}
+
+.pn-items .cell-product small {
+  display: block;
+  margin-top: 0.8mm;
+  color: var(--pn-muted);
+  font-size: 7.5pt;
+}
+
+.pn-items .cell-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: end;
+}
+
+.pn-items .cell-center {
+  text-align: center;
+}
+
+.pn-items .cell-empty {
+  padding: 8mm 3mm !important;
+  color: var(--pn-muted) !important;
+  text-align: center;
+}
+
+.pn-items--voucher .cell-unit {
+  width: 22mm;
+  color: var(--pn-muted);
+  text-align: center;
+}
+
+.pn-items--voucher .cell-qty {
+  width: 18mm;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ---------- Note block ----------------------------------------------------- */
+.pn-note {
+  margin-top: 3mm;
+  padding: 2.5mm 3mm;
+  border-inline-start: 2.5pt solid var(--pn-blue);
+  background: rgba(11, 26, 74, 0.04);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pn-note > span {
+  display: block;
+  color: var(--pn-muted);
+  font-size: 8pt;
+  font-weight: 700;
+}
+
+.pn-note p {
+  margin: 1mm 0 0;
+  color: var(--pn-ink);
+  font-size: 9pt;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* ---------- Totals + TOTAL bar --------------------------------------------- */
+.pn-bottom {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-top: 4mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pn-bottom__start {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pn-totals {
+  display: grid;
+  gap: 1.8mm;
+  flex: 0 0 auto;
+  min-width: 74mm;
+  margin-inline-start: auto;
+}
+
+.pn-totals__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6mm;
+  font-size: 10pt;
+}
+
+.pn-totals__row > span {
+  color: var(--pn-muted);
+}
+
+.pn-totals__row > strong {
+  color: var(--pn-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pn-total-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2mm;
+  border-radius: 4px;
+  background: var(--pn-navy);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.pn-total-bar__chip {
+  padding: 1.6mm 4mm;
+  border-start-end-radius: 4px;
+  border-end-end-radius: 4px;
+  background: var(--pn-blue);
+  color: #ffffff;
+  font-family: "Manrope", "Cairo", Arial, sans-serif;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.pn-total-bar__amount {
+  padding: 1.6mm 4mm;
+  color: #ffffff;
+  font-family: "Manrope", "Cairo", Arial, sans-serif;
+  font-size: 12pt;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+/* ---------- Footer (query block | signature) -------------------------------- */
+.print-document__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-top: auto;
+  padding-top: 4mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.pn-footer-query {
+  display: flex;
+  align-items: stretch;
+  gap: 3mm;
+  min-width: 0;
+}
+
+.pn-footer-query__bar {
+  flex: 0 0 1.2mm;
+  border-radius: 1mm;
+  background: var(--pn-navy);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.pn-footer-query h3 {
+  margin: 0;
+  color: var(--pn-ink);
+  font-size: 9.5pt;
+  font-weight: 700;
+}
+
+.pn-footer-query p {
+  margin: 1mm 0 0;
+  color: var(--pn-muted);
+  font-size: 8pt;
+  line-height: 1.5;
+}
+
+.pn-footer-signature {
+  flex: 0 0 58mm;
+  text-align: center;
+}
+
+.pn-footer-signature__line {
+  border-top: 1pt solid #555;
+  padding-top: 1.5mm;
+  color: var(--pn-muted);
+  font-size: 8pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ---------- Status chip + audit (saved invoice extras) --------------------- */
+.pn-status {
+  display: inline-block;
+  padding: 1mm 2.5mm;
+  border: 1pt solid var(--pn-navy);
+  border-radius: 999px;
+  color: var(--pn-navy);
+  font-size: 8pt;
+  font-weight: 700;
+}
+
+.pn-audit {
+  margin-top: 4mm;
+  padding-top: 2.5mm;
+  border-top: 0.6pt solid var(--pn-hair);
+}
+
+.pn-audit__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2mm;
+}
+
+.pn-audit__head h2 {
+  margin: 0;
+  color: var(--pn-ink);
+  font-size: 10pt;
+  font-weight: 700;
+}
+
+.pn-audit__head span {
+  color: var(--pn-muted);
+  font-size: 8pt;
+  font-variant-numeric: tabular-nums;
+}
+
+.pn-audit__table th,
+.pn-audit__table td {
+  padding: 1.5mm 3mm;
+  font-size: 8.5pt;
+}
+
+.pn-audit__empty {
+  margin: 0;
+  color: var(--pn-muted);
+  font-size: 8pt;
+  text-align: center;
+}
+
+/* ---------- Preview on screen (New Invoice live preview) -------------------- */
+.invoice-document--preview {
+  padding: 4mm;
+  border: 1px solid var(--border);
+  border-radius: 3mm;
+  background: #fff;
+}
+
+.invoice-document--preview .print-document__header {
+  margin-inline: -4mm;
+  margin-top: -4mm;
+  border-radius: 3mm 3mm 0 0;
+}
+
+.invoice-document--preview .print-document__header-inner {
+  min-height: 26mm;
+  padding: 3mm 6mm;
+}
+
+.invoice-document--preview .print-document__header-title h1 {
+  font-size: 20pt;
+}
+
+.invoice-document--preview .print-document__header-logo {
+  width: 14mm;
+  height: 14mm;
+  flex-basis: 14mm;
+  font-size: 14pt;
+}
+
+/* ---------- Disbursement voucher ------------------------------------------- */
+.pn-footer-printinfo {
+  flex: 0 0 auto;
+  color: var(--pn-muted);
+  font-size: 8pt;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  white-space: nowrap;
+}
+
+.disbursement-voucher__receipt {
+  margin: 4mm 0 0;
+  color: var(--pn-muted);
+  font-size: 8.5pt;
+  line-height: 1.55;
+}
+
+.disbursement-voucher__signatures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8mm;
+  margin-top: 8mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.disbursement-voucher__signature h3 {
+  margin: 0 0 10mm;
+  color: var(--pn-ink);
+  font-size: 9pt;
+  font-weight: 700;
+}
+
+.disbursement-voucher__signature h3 small {
+  margin-inline-start: 2mm;
+  color: var(--pn-muted);
+  font-size: 7pt;
+  font-weight: 500;
+}
+
+.disbursement-voucher__signature-line {
+  border-top: 1pt solid #555;
+  padding-top: 1.2mm;
+  color: var(--pn-muted);
+  font-size: 7.5pt;
+}
+
+.disbursement-voucher__signature-fields {
+  display: grid;
+  gap: 5mm;
+  margin-top: 4mm;
+}
+
+.disbursement-voucher__signature-fields span {
+  padding-top: 1.2mm;
+  border-top: 1pt solid #999;
+  color: var(--pn-muted);
+  font-size: 7.5pt;
+}
+
+/* ==========================================================================
+   LEGACY / REPORTS — kept as-is
+   ========================================================================== */
+.print-voucher-sheet {
+  display: none;
+}
+
+.report-print-limit-warning {
+  margin: 0 0 4mm;
+  padding: 3mm;
+  border: 1px solid #777;
+  background: #eee;
+  color: #111;
+  font-size: 9pt;
+  font-weight: 700;
+  text-align: start;
+}
+
+.report-context {
+  display: none;
+}
+
+@media print {
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    min-width: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .print-document {
+    page: auto;
+    width: 100%;
+    min-height: 97vh;
+    overflow: visible;
+    color: var(--pn-ink, #1a1a1a);
+    font-family: "Cairo", "Manrope", Arial, sans-serif;
+  }
+
+  .print-document--landscape {
+    page: report-landscape;
+  }
+
+  .reports-layout .print-area {
+    page: report-landscape;
+  }
+
+  .print-document__header {
+    margin-bottom: 6mm;
+  }
+
+  .print-document__header--print-only {
+    display: block !important;
+  }
+
+  .print-document__header-logo img {
+    filter: none;
+  }
+
+  .report-print-document {
+    margin-bottom: 5mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-context {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 3mm;
+    padding: 2mm 1mm 0;
+    color: #444;
+    font-size: 8pt;
+    line-height: 1.4;
+  }
+
+  .report-context-main,
+  .report-range,
+  .report-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1mm 2mm;
+    min-width: 0;
+  }
+
+  .report-range {
+    white-space: nowrap;
+  }
+
+  .report-range strong,
+  .report-filter strong,
+  .report-generated strong {
+    color: #111;
+    font-weight: 700;
+  }
+
+  .report-range i {
+    color: #555;
+    font-style: normal;
+  }
+
+  .report-badge {
+    display: inline-block;
+    padding: 1mm 2mm;
+    border: 1px solid #777;
+    border-radius: 999px;
+    background: #eee;
+    color: #222;
+    font-size: 7pt;
+    font-weight: 700;
+  }
+
+  .report-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 1mm;
+    max-width: 68mm;
+    padding: 0.5mm 1.5mm;
+    border: 1px solid #999;
+    border-radius: 999px;
+    overflow-wrap: anywhere;
+  }
+
+  .report-filter b {
+    color: #555;
+    font-weight: 600;
+  }
+
+  .report-generated {
+    display: flex;
+    align-items: center;
+    gap: 1mm;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .invoice-document--preview {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+  }
+
+  .invoice-document--preview .print-document__header {
+    margin-inline: 0;
+    margin-top: 0;
+    border-radius: 0;
+  }
+
+  .print-document__content table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .print-document__content thead {
+    display: table-header-group;
+  }
+
+  .print-document__content tfoot {
+    display: table-footer-group;
+  }
+
+  .print-document__content tr,
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .pn-note,
+  .pn-bottom,
+  .pn-audit,
+  .disbursement-voucher__signatures {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-voucher-sheet,
+  .print-voucher-sheet * {
+    visibility: visible !important;
+  }
+
+  .print-voucher-sheet {
+    position: static;
+    display: block !important;
+    width: 100%;
+    overflow: visible;
+    background: #fff !important;
+    color: #111 !important;
+    font-family: "Cairo", "Manrope", Arial, sans-serif;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body:has(.print-voucher-sheet) *:has(.print-voucher-sheet) {
+    display: contents !important;
+  }
+
+  body:has(.print-voucher-sheet) > :not(:has(.print-voucher-sheet)) {
+    display: none !important;
+  }
+
+  body:has(.print-voucher-sheet) *:has(.print-voucher-sheet) > :not(.print-voucher-sheet):not(:has(.print-voucher-sheet)) {
+    display: none !important;
+  }
+}

@@ -13,6 +13,8 @@ import { useReportPrint } from "../hooks/useReportPrint";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
+import ReportPrintLimitWarning from "../components/ReportPrintLimitWarning";
+import { formatPrintDate, formatPrintNumber } from "../../printing/utils/formatters";
 import DateRangePicker from "../../../components/ui/DateRangePicker";
 import { ReportDetailPanel } from "../components/ReportDetailTable";
 import type {
@@ -39,16 +41,7 @@ const getToday = (): string => {
 };
 
 const formatAmount = (value: number | string): string => {
-  const amount = Number(value);
-
-  if (!Number.isFinite(amount)) {
-    return "0.00";
-  }
-
-  return amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatPrintNumber(value);
 };
 
 const formatDate = (value: string | null | undefined): string => {
@@ -62,12 +55,12 @@ const formatDate = (value: string | null | undefined): string => {
     return "—";
   }
 
-  return date.toLocaleDateString();
+  return formatPrintDate(date, navigator.language);
 };
 
 export default function CustomerReportPage() {
   const { t } = useI18n();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
 
   const [dateFrom, setDateFrom] = useState<string>(getMonthStart);
   const [dateTo, setDateTo] = useState<string>(getToday);
@@ -136,6 +129,7 @@ export default function CustomerReportPage() {
           return;
         }
 
+        if (printLimit) notifyFailed();
         setData(null);
 
         if (err instanceof Error) {
@@ -149,7 +143,15 @@ export default function CustomerReportPage() {
         }
       }
     },
-    [page, dateFrom, dateTo, customerFilter, printLimit],
+    [
+      page,
+      dateFrom,
+      dateTo,
+      customerFilter,
+      printLimit,
+      notifyFailed,
+      t.reports.failedToLoadReport,
+    ],
   );
 
   /*
@@ -328,6 +330,7 @@ export default function CustomerReportPage() {
           }}
           filters={customerFilter ? [{ label: t.nav.customer || "Customer", value: customerOptions.find((option) => option.value === customerFilter)?.label || (t.nav.customerName || "Selected customer") }] : []}
         />
+        <ReportPrintLimitWarning limit={printLimit} total={data?.meta.total} />
 
         {/* Loading */}
         {loading && (

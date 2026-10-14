@@ -17,7 +17,9 @@ import { useReportPrint } from "../hooks/useReportPrint";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
+import ReportPrintLimitWarning from "../components/ReportPrintLimitWarning";
 import ReportKpiCard from "../components/ReportKpiCard";
+import { formatPrintCurrency, formatPrintDate } from "../../printing/utils/formatters";
 import DateRangePicker from "../../../components/ui/DateRangePicker";
 import type { RevenueReportResponse } from "../types";
 import type { Invoice } from "../../../types";
@@ -26,22 +28,8 @@ import type { Invoice } from "../../../types";
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
-function toNumber(value: number | string | null | undefined): number {
-  if (value === null || value === undefined) return 0;
-
-  const n = typeof value === "number" ? value : parseFloat(value);
-
-  return Number.isFinite(n) ? n : 0;
-}
-
-const fmt = (n: number | string) =>
-  toNumber(n).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
-const fmtEGP = (n: number | string, currency?: string) =>
-  `${currency ?? "EGP"} ${fmt(n)}`;
+const fmtEGP = (n: number | string, currency = "EGP") =>
+  formatPrintCurrency(n, currency);
 
 // Keep the date in the user's local timezone instead of converting it to UTC.
 // Using toISOString() here can shift the date backward in Africa/Cairo.
@@ -349,7 +337,7 @@ export default function RevenueReportPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
 
   // Page-level filter: date range
   const [dateFrom, setDateFrom] = useState(() => {
@@ -400,10 +388,21 @@ export default function RevenueReportPage() {
 
   // Fire the print-ready signal once, only after BOTH datasets have settled
   const printNotifiedRef = useRef(false);
+  const printFailedRef = useRef(false);
 
   useEffect(() => {
     if (!printLimit) {
       printNotifiedRef.current = false;
+      printFailedRef.current = false;
+      return;
+    }
+
+    if (
+      !printFailedRef.current &&
+      (summary.error || invoicesList.error)
+    ) {
+      printFailedRef.current = true;
+      notifyFailed();
       return;
     }
 
@@ -418,8 +417,11 @@ export default function RevenueReportPage() {
   }, [
     printLimit,
     summary.loading,
+    summary.error,
     invoicesList.loading,
+    invoicesList.error,
     notifyReady,
+    notifyFailed,
   ]);
 
   const statusOptions = getStatusOptions(t);
@@ -470,7 +472,7 @@ export default function RevenueReportPage() {
       key: "date",
       label: t.date,
       render: (r: Invoice) =>
-        new Date(r.date).toLocaleDateString(),
+        formatPrintDate(r.date, navigator.language),
     },
     {
       key: "status",
@@ -543,6 +545,10 @@ export default function RevenueReportPage() {
             from: dateFrom,
             to: dateTo,
           }}
+        />
+        <ReportPrintLimitWarning
+          limit={printLimit}
+          total={invoicesList.meta.total}
         />
 
         {/* ================================================================

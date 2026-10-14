@@ -1,4 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "../../../i18n/context";
+import { notify } from "../../../lib/notify";
+import { prepareAndPrint } from "../../printing/utils/printDocument";
 
 /**
  * Browser-print helper for paginated reports.
@@ -7,10 +10,14 @@ import { useCallback, useRef, useState } from "react";
  * after the print dialog closes.
  */
 export function useReportPrint(allLimit = 1000) {
+  const { t } = useI18n();
   const [printLimit, setPrintLimit] = useState<number | undefined>(undefined);
   const pendingRef = useRef(false);
+  const printTimerRef = useRef<number | null>(null);
+  const restoreRef = useRef<(() => void) | null>(null);
 
   const requestPrint = useCallback(() => {
+    if (pendingRef.current) return;
     pendingRef.current = true;
     setPrintLimit(allLimit);
   }, [allLimit]);
@@ -20,13 +27,44 @@ export function useReportPrint(allLimit = 1000) {
     pendingRef.current = false;
 
     const restore = () => {
-      setPrintLimit(undefined);
+      if (printTimerRef.current !== null) {
+        window.clearTimeout(printTimerRef.current);
+        printTimerRef.current = null;
+      }
       window.removeEventListener("afterprint", restore);
+      restoreRef.current = null;
+      setPrintLimit(undefined);
     };
+    restoreRef.current = restore;
     window.addEventListener("afterprint", restore);
 
-    setTimeout(() => window.print(), 100);
-  }, []);
+    printTimerRef.current = window.setTimeout(() => {
+      printTimerRef.current = null;
+      void prepareAndPrint().catch(() => {
+        restore();
+        notify.error(t.reports.printPrepareFailed);
+      });
+    }, 100);
+  }, [t.reports.printPrepareFailed]);
 
-  return { printLimit, requestPrint, notifyReady };
+  const notifyFailed = useCallback(() => {
+    if (!pendingRef.current) return;
+    pendingRef.current = false;
+    setPrintLimit(undefined);
+    notify.error(t.reports.failedToLoadReport);
+  }, [t.reports.failedToLoadReport]);
+
+  useEffect(
+    () => () => {
+      if (printTimerRef.current !== null) {
+        window.clearTimeout(printTimerRef.current);
+      }
+      if (restoreRef.current) {
+        window.removeEventListener("afterprint", restoreRef.current);
+      }
+    },
+    [],
+  );
+
+  return { printLimit, requestPrint, notifyReady, notifyFailed };
 }

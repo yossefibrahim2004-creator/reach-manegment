@@ -104,6 +104,27 @@ export default function InvoiceSearch() {
       ),
     },
     {
+      key: "note",
+      label: t.newInvoice.note,
+      render: (row: Invoice) =>
+        row.note?.trim() ? (
+          <span
+            title={row.note}
+            style={{
+              display: "block",
+              maxWidth: 180,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {row.note}
+          </span>
+        ) : (
+          ""
+        ),
+    },
+    {
       key: "currentTotal",
       label: t.total,
       align: "right" as const,

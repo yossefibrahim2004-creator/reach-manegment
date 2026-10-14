@@ -115,6 +115,7 @@ export class InvoicesService {
   async createInvoice(employeeId: number, data: {
     customerId: number;
     paymentType?: string;
+    note?: string;
     discountPercentage?: number;
     discountAmount?: number;
     items: { productModelId: number; quantity: number; price: number }[];
@@ -271,6 +272,7 @@ export class InvoicesService {
           originalTotal: subtotal,
           currentTotal: total,
           paymentType: data.paymentType,
+          note: data.note?.trim() || null,
           discountPercentage: data.discountPercentage ?? 0,
           discountAmount: data.discountAmount ?? 0,
         },
@@ -797,7 +799,7 @@ export class InvoicesService {
         items: {
           include: {
             productModel: {
-              select: { id: true, name: true, isSerialized: true },
+              select: { id: true, name: true, isSerialized: true, unit: true },
             },
             unitAssignments: {
               where: { reversedAt: null },

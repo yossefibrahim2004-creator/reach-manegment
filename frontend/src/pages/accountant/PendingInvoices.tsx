@@ -208,6 +208,45 @@ export default function PendingInvoices() {
           </div>
         ) : selectedInvoice ? (
           <>
+            {/* Invoice note (optional) — plain text, line breaks preserved */}
+            {selectedInvoice.note?.trim() && (
+              <div
+                style={{
+                  marginBottom: "12px",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  background: "var(--bg-inset, var(--bg-muted))",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    fontFamily: "'Manrope', sans-serif",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "var(--soft)",
+                    marginBottom: "4px",
+                  }}
+                >
+                  {t.newInvoice.note}
+                </span>
+                <p
+                  dir="auto"
+                  style={{
+                    margin: 0,
+                    fontFamily: "'Cairo', sans-serif",
+                    fontSize: "13px",
+                    color: "var(--ink)",
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {selectedInvoice.note}
+                </p>
+              </div>
+            )}
+
             {/* Items list */}
             <div
               style={{

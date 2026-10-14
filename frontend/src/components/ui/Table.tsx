@@ -460,11 +460,6 @@ export function Table<T = unknown>({
          */
 
         @media print {
-          @page {
-            size: A4 landscape;
-            margin: 12mm 10mm 14mm;
-          }
-
           .ui-table-container {
             width: 100%;
             max-width: none;

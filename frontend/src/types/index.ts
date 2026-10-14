@@ -130,6 +130,11 @@ export interface InvoiceItem {
   productUnit?: ProductUnit;
   productModelId?: number;
   productModel?: ProductModel;
+  unitAssignments?: {
+    id: number;
+    reversedAt?: string | null;
+    productUnit?: Pick<ProductUnit, "id" | "barcode" | "status">;
+  }[];
   quantity?: number;
   costAtSale?: number;
   price: number;
@@ -145,6 +150,7 @@ export interface Invoice {
   employee?: Employee;
   status: InvoiceStatus;
   paymentType?: string;
+  note?: string | null;
   discountPercentage?: number;
   discountAmount?: number;
   date: string;

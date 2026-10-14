@@ -72,6 +72,27 @@ export default function Invoices() {
     { key: "employeeName", label: t.invoices.employee, render: (r: Invoice) => r.employee?.name ?? "—" },
     { key: "date", label: t.date, render: (r: Invoice) => new Date(r.date).toLocaleDateString() },
     { key: "status", label: t.status, render: (r: Invoice) => <StatusChip status={r.status} /> },
+    {
+      key: "note",
+      label: t.newInvoice.note,
+      render: (r: Invoice) =>
+        r.note?.trim() ? (
+          <span
+            title={r.note}
+            style={{
+              display: "block",
+              maxWidth: 180,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {r.note}
+          </span>
+        ) : (
+          ""
+        ),
+    },
     { key: "currentTotal", label: t.total, align: "right" as const, render: (r: Invoice) => <span style={{ fontVariantNumeric: "tabular-nums" }}>{t.currency} {fmt(r.currentTotal)}</span> },
   ];
 

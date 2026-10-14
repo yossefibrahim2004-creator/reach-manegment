@@ -385,6 +385,8 @@ const en = {
     phoneNumberPlaceholder: "Phone number",
     add: "Add",
     unableToSave: "Unable to save invoice.",
+    note: "Note",
+    notePlaceholder: "Optional note shown on the invoice and delivery documents",
   },
 
   // Customers
@@ -584,7 +586,11 @@ const en = {
     daily: "Daily",
     monthly: "Monthly",
     print: "Print Report",
+    issueVoucher: "Disbursement Voucher",
     printIssueVoucher: "Print Issue Voucher",
+    printDate: "Print Date",
+    printPrepareFailed: "The document could not be prepared for printing. Check fonts and images, then try again.",
+    printLimitWarning: "Warning: this printout includes only the first {limit} of {total} records. Narrow the filters to include all results.",
     customerReport: "Customer Report",
     supplierReport: "Supplier Report",
     showAllDetails: "Show All Details",
@@ -636,6 +642,22 @@ const en = {
     status: "Status",
     productModels: "Products",
     searchProducts: "Search products...",
+  },
+
+  printing: {
+    sl: "SL.",
+    total: "TOTAL",
+    unit: "Unit",
+    piece: "Piece",
+    query: "For Any Query:",
+    authorisedSignature: "Authorised Signature",
+    receiptStatement:
+      "I confirm receipt of the items listed above in the stated condition and quantities.",
+    preparedBy: "Prepared by",
+    approvedBy: "Approved by",
+    receivedBy: "Received by",
+    name: "Name",
+    signature: "Signature",
   },
 
   // Admin Attendance
@@ -1133,6 +1155,7 @@ const en = {
       minLength: "Must be at least {n} characters.",
       passwordLength: "Password must be at least 8 characters.",
       reasonRequired: "A reason is required.",
+      noteMaxLength: "The note must not exceed {n} characters.",
     },
     auth: {
       invalidCredentials: "Invalid credentials. Please try again.",

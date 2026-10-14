@@ -1,6 +1,7 @@
-import { IsNumber, IsArray, ArrayMinSize, ValidateNested, Min, Max, IsOptional, IsString, IsInt, IsIn } from 'class-validator';
+import { IsNumber, IsArray, ArrayMinSize, ValidateNested, Min, Max, MaxLength, IsOptional, IsString, IsInt, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { INVOICE_NOTE_MAX_LENGTH } from '../../common/constants/invoice.constants';
 
 class InvoiceItemDto {
   @ApiProperty({ example: 11 })
@@ -30,6 +31,12 @@ export class CreateInvoiceDto {
   @IsString()
   @IsIn(['CASH', 'CARD', 'TRANSFER', 'CREDIT'])
   paymentType?: string;
+
+  @ApiPropertyOptional({ example: 'تسليم بعد التنسيق مع العميل', maxLength: INVOICE_NOTE_MAX_LENGTH })
+  @IsOptional()
+  @IsString()
+  @MaxLength(INVOICE_NOTE_MAX_LENGTH)
+  note?: string;
 
   @ApiPropertyOptional({ example: 10, minimum: 0, maximum: 100 })
   @IsOptional()

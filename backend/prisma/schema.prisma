@@ -362,6 +362,7 @@ model Invoice {
   deliveredBy            Employee?               @relation("DeliveredByEmployee", fields: [deliveredByEmployeeId], references: [id], onDelete: Restrict)
   deliveredAt            DateTime?
   paymentType            String?
+  note                   String?
   discountPercentage     Decimal?                @db.Decimal(18, 2)
   discountAmount         Decimal?                @db.Decimal(18, 2)
   date                   DateTime                @default(now())

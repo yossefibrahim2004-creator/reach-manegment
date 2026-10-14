@@ -98,10 +98,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.title = brand.businessName;
-    document.documentElement.style.setProperty(
-      "--print-company",
-      JSON.stringify(brand.businessName),
-    );
 
     let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
     if (!link) {

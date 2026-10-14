@@ -13,15 +13,16 @@ import { useReportPrint } from "../hooks/useReportPrint";
 import PrintButton from "../components/PrintButton";
 import ExcelExportButton from "../components/ExcelExportButton";
 import PrintHeader from "../components/PrintHeader";
+import ReportPrintLimitWarning from "../components/ReportPrintLimitWarning";
+import { formatPrintNumber } from "../../printing/utils/formatters";
 import ReportKpiCard from "../components/ReportKpiCard";
 import type { InventoryReportResponse, InventoryReportRow } from "../types";
 
-const fmt = (n: number) =>
-  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = formatPrintNumber;
 
 export default function InventoryReportPage() {
   const { t } = useI18n();
-  const { printLimit, requestPrint, notifyReady } = useReportPrint();
+  const { printLimit, requestPrint, notifyReady, notifyFailed } = useReportPrint();
   const today = new Date().toISOString().slice(0, 10);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -46,11 +47,12 @@ export default function InventoryReportPage() {
       if (printLimit) notifyReady();
     } catch (err) {
       if (isAbortError(err)) return;
+      if (printLimit) notifyFailed();
       setData(null);
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [page, categoryFilter, debouncedSearch, printLimit, notifyReady]);
+  }, [page, categoryFilter, debouncedSearch, printLimit, notifyReady, notifyFailed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -251,7 +253,7 @@ export default function InventoryReportPage() {
             placeholder={t.reports.searchProducts || "Search products..."}
           />
         </div>
-        <PrintButton onClick={requestPrint} label={t.reports.printIssueVoucher} />
+        <PrintButton onClick={requestPrint} label={t.reports.print} />
         <ExcelExportButton filename="inventory-report" rows={data?.items ?? []} sheetName="Inventory" />
       </div>
 
@@ -262,6 +264,7 @@ export default function InventoryReportPage() {
           range={{ from: today, to: today }}
           filters={filters}
         />
+        <ReportPrintLimitWarning limit={printLimit} total={data?.meta.total} />
 
         {loading ? (
           <div className="state-block">

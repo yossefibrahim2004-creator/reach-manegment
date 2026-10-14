@@ -3,33 +3,16 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../../lib/api";
 import { isAbortError } from "../../hooks";
 import { Button } from "../../components/ui/Button";
-import { StatusChip } from "../../components/ui/StatusChip";
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
+import { notify } from "../../lib/notify";
 import { useI18n } from "../../i18n/context";
 import { useSettings } from "../../lib/settings";
 import BrandLogo from "../../components/BrandLogo";
 import PrintButton from "../../features/reports/components/PrintButton";
-import PrintHeader from "../../features/reports/components/PrintHeader";
+import InvoiceDocument from "../../features/printing/components/InvoiceDocument";
+import { createInvoiceDocumentData } from "../../features/printing/utils/invoiceDocumentData";
+import { prepareAndPrint } from "../../features/printing/utils/printDocument";
 import type { Invoice, InvoiceAuditLog } from "../../types";
-
-const formatMoney = (value: unknown) => Number(value ?? 0).toFixed(2);
-
-const formatDate = (value: string | Date) =>
-  new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
-
-const formatDateTime = (value: string | Date) =>
-  new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
 
 export default function AdminInvoiceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +24,7 @@ export default function AdminInvoiceDetail() {
   const [auditLogs, setAuditLogs] = useState<InvoiceAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [auditLoading, setAuditLoading] = useState(true);
+  const [printRequestedAt, setPrintRequestedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -84,12 +68,54 @@ export default function AdminInvoiceDetail() {
     };
   }, [id]);
 
-  const invoiceDate = useMemo(
-    () => (invoice ? formatDate(invoice.date) : ""),
-    [invoice],
+  const invoiceDocumentData = useMemo(
+    () =>
+      invoice
+        ? createInvoiceDocumentData(
+            invoice,
+            auditLogs,
+            printRequestedAt ?? undefined,
+            (action) =>
+              t.auditHistory.actions?.[
+                action as keyof typeof t.auditHistory.actions
+              ] ?? action,
+            (status) =>
+              status === "PENDING_ACCOUNTANT"
+                ? t.statusLabels.pendingAccountant
+                : status === "CONFIRMED"
+                  ? t.statusLabels.confirmed
+                  : status === "DELIVERED"
+                    ? t.statusLabels.delivered
+                    : t.statusLabels.cancelled,
+          )
+        : null,
+    [
+      invoice,
+      auditLogs,
+      printRequestedAt,
+      t.auditHistory.actions,
+      t.statusLabels.pendingAccountant,
+      t.statusLabels.confirmed,
+      t.statusLabels.delivered,
+      t.statusLabels.cancelled,
+    ],
   );
 
-  const items = invoice?.items ?? [];
+  useEffect(() => {
+    if (!printRequestedAt) return;
+    const finishPrint = () => setPrintRequestedAt(null);
+    window.addEventListener("afterprint", finishPrint);
+    const printTimer = window.setTimeout(() => {
+      void prepareAndPrint().catch(() => {
+        setPrintRequestedAt(null);
+        notify.error(t.reports.printPrepareFailed);
+      });
+    }, 100);
+    return () => {
+      window.clearTimeout(printTimer);
+      window.removeEventListener("afterprint", finishPrint);
+    };
+  }, [printRequestedAt, t.reports.printPrepareFailed]);
 
   if (loading) {
     return (
@@ -140,7 +166,7 @@ export default function AdminInvoiceDetail() {
           </div>
 
           <div className="invoice-actions">
-            <PrintButton />
+            <PrintButton onClick={() => setPrintRequestedAt(new Date())} />
 
             {invoice.status === "CONFIRMED" || invoice.status === "DELIVERED" ? (
               <>
@@ -186,188 +212,46 @@ export default function AdminInvoiceDetail() {
         </header>
 
         <div className="print-area">
-          <PrintHeader
-            titleEn={`Invoice ${invoice.invoiceNumber}`}
-            titleAr={t.invoices.salesInvoice}
-            range={{ from: invoiceDate, to: invoiceDate }}
-            filters={[
-              {
-                label: t.invoices.customer,
-                value: invoice.customer?.name || "—",
-              },
-              {
-                label: t.status,
-                value: invoice.status || "—",
-              },
-            ]}
-          />
-
-          <section className="invoice-panel invoice-overview">
-            <div className="invoice-title-row">
-              <div>
-                <p className="invoice-kicker">فاتورة · INVOICE</p>
-                <h1 dir="ltr">{invoice.invoiceNumber}</h1>
-              </div>
-              <StatusChip status={invoice.status} />
-            </div>
-
-            <dl className="invoice-meta">
-              <div>
-                <dt>{t.date}</dt>
-                <dd dir="ltr">{invoiceDate}</dd>
-              </div>
-
-              <div>
-                <dt>{t.invoices.customer}</dt>
-                <dd>{invoice.customer?.name || "—"}</dd>
-              </div>
-
-              <div>
-                <dt>{t.invoices.employee}</dt>
-                <dd>{invoice.employee?.name || "—"}</dd>
-              </div>
-
-              <div>
-                <dt>{t.status}</dt>
-                <dd>{invoice.status}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="invoice-panel invoice-items-panel">
-            <div className="invoice-section-head">
-              <h2>{t.invoices.invoiceItems}</h2>
-              <span aria-label={`${items.length}`}>{items.length}</span>
-            </div>
-
-            <div className="invoice-table-wrap">
-              <table className="invoice-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{t.invoices.product}</th>
-                    <th scope="col" className="cell-center">
-                      {t.invoices.qty}
-                    </th>
-                    <th scope="col" className="cell-end">
-                      {t.newInvoice.price}
-                    </th>
-                    <th scope="col" className="cell-end">
-                      {t.invoices.currentTotal}
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {items.length === 0 ? (
-                    <tr>
-                      <td className="invoice-no-data" colSpan={4}>
-                        {t.invoices.noItems}
-                      </td>
-                    </tr>
-                  ) : (
-                    items.map((item: any, index) => {
-                      const quantity = Number(item.quantity ?? 1);
-                      const price = Number(item.price ?? 0);
-                      const itemTotal = price * quantity;
-
-                      return (
-                        <tr
-                          key={String(
-                            item.id ??
-                              item.productUnit?.barcode ??
-                              index,
-                          )}
-                        >
-                          <td>
-                            <strong>
-                              {item.productUnit?.productModel?.name ||
-                                item.productModel?.name ||
-                                "—"}
-                            </strong>
-
-                            {item.productUnit?.barcode && (
-                              <small dir="ltr">
-                                {item.productUnit.barcode}
-                              </small>
-                            )}
-                          </td>
-
-                          <td className="cell-center numeric">
-                            {quantity}
-                            {item.productModel?.unit === "METER" ? ` ${t.uom.METER}` : ""}
-                          </td>
-
-                          <td className="cell-end numeric">
-                            {t.currency} {formatMoney(price)}
-                          </td>
-
-                          <td className="cell-end numeric total-cell">
-                            {t.currency} {formatMoney(itemTotal)}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="invoice-summary">
-            <h2>الملخص المالي · Summary</h2>
-
-            <dl>
-              <div>
-                <dt>{t.invoices.originalTotal}</dt>
-                <dd>
-                  {t.currency} {formatMoney(invoice.originalTotal)}
-                </dd>
-              </div>
-
-              <div className="invoice-summary-total">
-                <dt>{t.invoices.currentTotal}</dt>
-                <dd>
-                  {t.currency} {formatMoney(invoice.currentTotal)}
-                </dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="invoice-panel invoice-audit">
-            <div className="invoice-section-head">
-              <h2>{t.pages.auditHistory}</h2>
-              <span aria-label={`${auditLogs.length}`}>
-                {auditLoading ? "…" : auditLogs.length}
-              </span>
-            </div>
-
-            {auditLoading ? (
-              <p className="invoice-no-data">
-                <LoadingSpinner size={20} />
-              </p>
-            ) : auditLogs.length === 0 ? (
-              <p className="invoice-no-data">{t.invoices.noAuditEntries}</p>
-            ) : (
-              <ol className="invoice-timeline">
-                {auditLogs.map((entry) => (
-                  <li key={String(entry.id)}>
-                    <span className="timeline-dot" aria-hidden="true" />
-
-                    <div>
-                      <strong>
-                        {t.auditHistory.actions?.[entry.action as keyof typeof t.auditHistory.actions] ?? entry.action}
-                      </strong>
-                      <small>{entry.employee?.name || "—"}</small>
-                    </div>
-
-                    <time dateTime={entry.timestamp} dir="ltr">
-                      {formatDateTime(entry.timestamp)}
-                    </time>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
+          {invoiceDocumentData && (
+            <InvoiceDocument
+              mode="saved"
+              data={invoiceDocumentData}
+              currency={t.currency}
+              auditLoading={auditLoading}
+              labels={{
+                title: t.invoices.salesInvoice,
+                invoice: t.newInvoice.invoiceNumber,
+                date: t.date,
+                customer: t.invoices.customer,
+                employee: t.invoices.employee,
+                status: t.status,
+                payment: t.newInvoice.payment,
+                note: t.newInvoice.note,
+                items: t.invoices.invoiceItems,
+                product: t.invoices.product,
+                quantity: t.invoices.qty,
+                price: t.newInvoice.price,
+                lineTotal: t.invoices.currentTotal,
+                summary: "الملخص المالي · Summary",
+                originalTotal: t.invoices.originalTotal,
+                currentTotal: t.invoices.currentTotal,
+                discountPercent: t.newInvoice.discountPercent,
+                discountAmount: t.newInvoice.discount,
+                audit: t.pages.auditHistory,
+                noAudit: t.invoices.noAuditEntries,
+                noItems: t.invoices.noItems,
+                draft: t.newInvoice.draft,
+                billTo: t.newInvoice.billTo,
+                subtotal: t.newInvoice.subtotal,
+                printedAt: t.reports.printDate,
+                meter: t.uom.METER,
+                sl: t.printing.sl,
+                total: t.printing.total,
+                query: t.printing.query,
+                authorisedSignature: t.printing.authorisedSignature,
+              }}
+            />
+          )}
         </div>
       </div>
 
@@ -842,11 +726,6 @@ function InvoiceStyles() {
       }
 
       @media print {
-        @page {
-          size: A4;
-          margin: 10mm;
-        }
-
         .no-print,
         .invoice-ambient {
           display: none !important;

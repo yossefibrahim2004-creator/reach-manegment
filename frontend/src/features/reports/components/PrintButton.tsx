@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "../../../i18n/context";
+import { notify } from "../../../lib/notify";
+import { prepareAndPrint } from "../../printing/utils/printDocument";
 
 interface PrintButtonProps {
   onClick?: () => void;
@@ -17,7 +19,10 @@ export default function PrintButton({ onClick, label }: PrintButtonProps) {
       onClick();
       setTimeout(() => setIsPrinting(false), 3000);
     } else {
-      window.print();
+      setIsPrinting(true);
+      void prepareAndPrint()
+        .catch(() => notify.error(t.reports.printPrepareFailed))
+        .finally(() => setIsPrinting(false));
     }
   };
 

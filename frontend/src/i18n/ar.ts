@@ -385,6 +385,8 @@ const ar = {
     phoneNumberPlaceholder: "رقم الهاتف",
     add: "إضافة",
     unableToSave: "تعذر حفظ الفاتورة.",
+    note: "ملاحظة",
+    notePlaceholder: "ملاحظة اختيارية تظهر على الفاتورة ومستندات التسليم",
   },
 
   // Customers
@@ -584,7 +586,11 @@ const ar = {
     daily: "يومي",
     monthly: "شهري",
     print: "طباعة التقرير",
+    issueVoucher: "إذن الصرف",
     printIssueVoucher: "طباعة إذن الصرف",
+    printDate: "تاريخ الطباعة",
+    printPrepareFailed: "تعذر تجهيز المستند للطباعة. تحقق من تحميل الخطوط والصور ثم أعد المحاولة.",
+    printLimitWarning: "تنبيه: الطباعة تعرض أول {limit} سجلًا فقط من إجمالي {total}. ضيّق نطاق البحث لإظهار كل النتائج.",
     customerReport: "تقرير العملاء",
     supplierReport: "تقرير الموردين",
     showAllDetails: "عرض تفاصيل الكل",
@@ -636,6 +642,22 @@ const ar = {
     noTransactionsForRow: "لا توجد معاملات لهذا الصف.",
     revenue: "تقرير الإيرادات",
     netProfit: "تقرير صافي الربح",
+  },
+
+  printing: {
+    sl: "SL.",
+    total: "الإجمالي",
+    unit: "الوحدة",
+    piece: "قطعة",
+    query: "للاستفسار:",
+    authorisedSignature: "توقيع مخوّل",
+    receiptStatement:
+      "أقر باستلام الأصناف الموضحة أعلاه بالحالة والكميات المذكورة.",
+    preparedBy: "أعدّها",
+    approvedBy: "اعتُمدت",
+    receivedBy: "استلمها",
+    name: "الاسم",
+    signature: "التوقيع",
   },
 
   // Admin Attendance
@@ -1133,6 +1155,7 @@ const ar = {
       minLength: "يجب ألا يقل عن {n} حرفًا.",
       passwordLength: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.",
       reasonRequired: "السبب مطلوب.",
+      noteMaxLength: "الملاحظة يجب ألا تتجاوز {n} حرف.",
     },
     auth: {
       invalidCredentials: "بيانات الدخول غير صحيحة. يرجى المحاولة مرة أخرى.",
