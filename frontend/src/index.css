@@ -6,8 +6,8 @@
    Components consume tokens ONLY. Name tokens by ROLE, never by color.
 
    Identity: soft indigo brand on cool lavender-tinted neutrals.
-   Every solid fill passes WCAG AA (>= 4.5:1) with its on-color text, and every
-   text-role color passes AA on its surface (surface, base and muted).
+   Semantic tokens are designed for readable contrast; verify actual component pairs
+   with automated contrast checks before claiming WCAG conformance.
    Elevation (dark): the higher the surface, the lighter it is.
    ========================================================================== */
 :root {
@@ -319,12 +319,11 @@ html[lang="ar"] body {
   line-height: 1.7;
 }
 
-/* Arabic letters JOIN. Any letter-spacing breaks the joins and makes the text
-   look broken, so it is forced off for Arabic. */
-html[lang="ar"] *,
-html[lang="ar"] *::before,
-html[lang="ar"] *::after {
-  letter-spacing: 0 !important;
+/* Apply this utility only to text that actually needs Arabic-specific spacing.
+   Avoid a global !important rule: Arabic screens can also contain Latin codes,
+   serial numbers, English labels, and third-party controls. */
+.arabic-text {
+  letter-spacing: normal;
 }
 
 /* Typography */
@@ -460,6 +459,9 @@ input[type="url"],
 input[type="password"],
 input[type="date"],
 input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"],
 select,
 textarea {
   font-family: inherit;
@@ -477,7 +479,7 @@ textarea {
 }
 
 /* Hover: subtle darkening so the field feels interactive */
-input:where([type="text"], [type="search"], [type="number"], [type="email"], [type="tel"], [type="url"], [type="password"], [type="date"], [type="datetime-local"]):hover:not(:disabled):not(:focus),
+input:where([type="text"], [type="search"], [type="number"], [type="email"], [type="tel"], [type="url"], [type="password"], [type="date"], [type="datetime-local"], [type="time"], [type="month"], [type="week"]):hover:not(:disabled):not(:focus),
 select:hover:not(:disabled):not(:focus),
 textarea:hover:not(:disabled):not(:focus) {
   border-color: color-mix(in srgb, var(--text-primary) 32%, transparent);
@@ -492,6 +494,9 @@ input[type="url"]:focus,
 input[type="password"]:focus,
 input[type="date"]:focus,
 input[type="datetime-local"]:focus,
+input[type="time"]:focus,
+input[type="month"]:focus,
+input[type="week"]:focus,
 select:focus,
 textarea:focus {
   border-color: var(--brand-fill);
@@ -541,7 +546,10 @@ input:-webkit-autofill:focus {
 
 /* Native date inputs: consistent height in RTL */
 input[type="date"],
-input[type="datetime-local"] {
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
   min-height: var(--control-h);
 }
 
@@ -556,6 +564,9 @@ input[type="datetime-local"] {
   input[type="password"],
   input[type="date"],
   input[type="datetime-local"],
+  input[type="time"],
+  input[type="month"],
+  input[type="week"],
   select,
   textarea {
     font-size: 16px;
@@ -642,6 +653,9 @@ input[type="datetime-local"] {
 }
 
 @media print {
+  /* Paper size and margins are defined once in
+     features/printing/print.css (@page + @page report-landscape). */
+
   /* Force light tokens even if the app is in dark mode */
   html[data-theme="dark"] {
     color-scheme: light;
@@ -687,10 +701,33 @@ input[type="datetime-local"] {
     line-height: 1.45 !important;
   }
 
-  /* Hide app chrome, reveal only the print-area subtree */
-  aside,
-  header,
+  /* Hide app chrome, reveal only the print-area subtree. Do not globally hide
+     semantic <header> or <aside> elements: a printable document may use them. */
   .no-print {
+    display: none !important;
+  }
+
+  /* Interactive controls are never part of a printed report. Some reports
+     render their "show all / show selected" toggles inside the print area. */
+  .print-area button {
+    display: none !important;
+  }
+
+  /* Print only the report subtree. The app shell (sidebar, top bar, and the
+     .page-container padding/max-width) must not occupy paper: visibility
+     keeps layout, which produced a fully blank first page and a trailing
+     blank page. display: contents removes the ancestor boxes entirely.
+     The :not(:has(.print-voucher-sheet)) guard keeps this rule from hiding a
+     voucher that is printed from the same page as an invoice. */
+  body:has(.print-area):not(:has(.print-voucher-sheet)) *:has(.print-area) {
+    display: contents !important;
+  }
+
+  body:has(.print-area):not(:has(.print-voucher-sheet)) > :not(:has(.print-area)) {
+    display: none !important;
+  }
+
+  body:has(.print-area):not(:has(.print-voucher-sheet)) *:has(.print-area) > :not(.print-area):not(:has(.print-area)) {
     display: none !important;
   }
 
@@ -708,7 +745,10 @@ input[type="datetime-local"] {
     left: 0;
     top: 0;
     width: 100%;
-    padding: 16px !important;
+    box-sizing: border-box !important;
+    /* @page owns the outer safety margin; avoid adding a second 16px inset. */
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   /* Reset layout offsets so print content uses the full page */
@@ -727,8 +767,8 @@ input[type="datetime-local"] {
   }
 
   /* Arabic joins + uppercase have no meaning on paper either */
-  html[lang="ar"] .print-area * {
-    letter-spacing: 0 !important;
+  html[lang="ar"] .print-area .arabic-text {
+    letter-spacing: normal !important;
     text-transform: none !important;
   }
 
@@ -748,8 +788,15 @@ input[type="datetime-local"] {
   }
 
   /* ─── KPI grid & cards ─── */
-  .kpi-grid {
+  .print-area .kpi-grid {
     grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Reports use .form-grid for their KPI rows. Size the tracks in physical
+     units so cards stay even on A4 landscape (auto-fit with 180px minimum
+     leaves an empty track on wide paper). */
+  .print-area .form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(42mm, 1fr)) !important;
   }
 
   .print-area .kpi-card {
@@ -761,16 +808,22 @@ input[type="datetime-local"] {
     padding: 14px 16px !important;
   }
 
-  .print-area .kpi-card p:first-child {
-    font-size: 10px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
+  /* A printed figure must never be cut off with an ellipsis — wrap it. */
+  .print-area .kpi-card p {
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+  }
+
+  .print-area .kpi-card p:first-of-type {
+    font-size: 9pt !important;
     color: var(--print-muted) !important;
   }
 
   .print-area .kpi-card p:last-of-type {
-    font-size: 22px !important;
-    margin-top: 6px !important;
+    font-size: 13pt !important;
+    line-height: 1.25 !important;
+    margin-top: 4px !important;
     color: var(--print-ink) !important;
   }
 
@@ -834,24 +887,65 @@ input[type="datetime-local"] {
   }
 
   /* Never split a row / card / KPI across pages; repeat table header */
-  tr,
-  .card,
-  .kpi-card,
-  .audit-detail-card,
-  .ui-table-tr,
-  .ui-table td,
-  .ui-table th {
+  .print-area tr,
+  .print-area .card,
+  .print-area .kpi-card,
+  .print-area .audit-detail-card,
+  .print-area .ui-table-tr,
+  .print-area .ui-table td,
+  .print-area .ui-table th {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
-  .ui-table thead {
-    display: table-header-group;
+  .print-area .ui-table thead {
+    display: table-header-group !important;
+  }
+
+  /* Never leave one or two rows alone on a fresh sheet. */
+  .print-area .ui-table tbody tr:nth-last-child(-n + 2) {
+    break-before: avoid;
+    page-break-before: avoid;
   }
 
   /* Pagination is meaningless on paper */
   .print-area nav {
     display: none !important;
+  }
+
+  /* Opt-in column hiding on paper (Table column `printHidden`). */
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Status badges print as a light outlined label: the text carries the
+     meaning, so the report still reads correctly in black & white. */
+  .print-area .print-badge {
+    display: inline-block !important;
+    padding: 0.5mm 1.5mm !important;
+    border: 0.3mm solid #999 !important;
+    border-radius: 1mm !important;
+    background: transparent !important;
+    color: var(--print-ink) !important;
+    font-size: 8.5pt !important;
+    font-weight: 600 !important;
+    white-space: normal !important;
+  }
+
+  /* The colour dot is decorative once the label is printed. */
+  .print-area .print-badge > span {
+    display: none !important;
+  }
+
+  /* KPI cards: drop the colour dot, glow and accent line on paper. The value
+     and label carry the meaning; this saves ink and stays grayscale-safe. */
+  .print-area .kpi-card [aria-hidden="true"] {
+    display: none !important;
+  }
+
+  /* Table text prints in ink (colour must not be the only signal). */
+  .print-area .ui-table-td span:not(.print-badge) {
+    color: inherit !important;
   }
 
   /* ─── RTL print support ─── */
@@ -860,25 +954,55 @@ input[type="datetime-local"] {
     text-align: right !important;
   }
 
+  /* Arabic script has no uppercase and letter-spacing breaks its letter
+     joining. Screen components set both inline, so this must be !important. */
+  html[lang="ar"] .print-area *,
+  html[lang="ar"] .print-document * {
+    letter-spacing: normal !important;
+    text-transform: none !important;
+  }
+
+  /* Header cells may wrap instead of widening the table past the page edge. */
+  .print-area th {
+    white-space: normal !important;
+  }
+
+  /* Tailwind's min-h-screen is 100vh in print — taller than the printable
+     area, which can add a trailing blank page. Collapse it to content. */
+  .min-h-screen {
+    min-height: 0 !important;
+  }
+
+  /* Never let the last printed block's margin / break-after add a page. */
+  .print-area > :last-child {
+    margin-bottom: 0 !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
   html[dir="rtl"] .print-area th[align="right"],
   html[dir="rtl"] .print-area td[align="right"] {
     text-align: left !important;
   }
 
-  h2,
-  h3 {
+  .print-area h2,
+  .print-area h3 {
+    break-after: avoid-page !important;
     page-break-after: avoid !important;
   }
 
-  img {
+  .print-area img {
+    break-inside: avoid-page !important;
     page-break-inside: avoid !important;
   }
 
-  .tab-content {
+  /* If the app intentionally uses tab-content for printable report sections,
+     reveal those sections for printing; hidden sections remain hidden. */
+  .print-area .tab-content {
     display: block !important;
   }
 
-  .tab-content[hidden] {
+  .print-area .tab-content[hidden] {
     display: none !important;
   }
 }

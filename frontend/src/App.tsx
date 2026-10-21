@@ -221,6 +221,7 @@ export default function App() {
                     <Route path="customer-debts" element={<AdminCustomerDebts />} />
                  <Route path="unit-search" element={<UnitSearch />} />
                     <Route path="stock-pricing" element={<PendingPricingQueue />} />
+                    <Route path="delivery" element={<InvoiceDelivery />} />
                     <Route path="stock-adjustments" element={<StockAdjustments />} />
                     <Route path="reports" element={<ReportsLayout />}>
                       <Route index element={<ReportsIndexPage />} />

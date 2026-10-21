@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../lib/api";
 import { useDebouncedValue, isAbortError } from "../../hooks";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -8,17 +8,41 @@ import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Table } from "../../components/ui/Table";
 import { Pagination } from "../../components/ui/Pagination";
-import { StatusChip } from "../../components/ui/StatusChip";
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import DateRangePicker from "../../components/ui/DateRangePicker";
 import { useI18n } from "../../i18n/context";
 import { useRealtimeRefresh } from "../../hooks/useRealtimeEvents";
+import { useInvoiceColumns } from "../../features/invoices";
 import type { Invoice } from "../../types";
+
+const STATUS_FILTERS = [
+  "PENDING_ACCOUNTANT",
+  "CONFIRMED",
+  "DELIVERED",
+  "CANCELLED",
+] as const;
+
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+const isStatusFilter = (value: string): value is StatusFilter =>
+  (STATUS_FILTERS as readonly string[]).includes(value);
 
 export default function Invoices() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  // Filters live in the URL so dashboard links can deep-link a filtered list
+  // and the row count always matches the queue badge that led here.
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const rawStatus = searchParams.get("status") ?? "";
+  const statusFilter: StatusFilter | "" = isStatusFilter(rawStatus) ? rawStatus : "";
+  const cogsFilter = searchParams.get("cogs") === "pending" ? "pending" : "";
+  const search = searchParams.get("search") ?? "";
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const dateFrom = searchParams.get("dateFrom") ?? "";
+  const dateTo = searchParams.get("dateTo") ?? "";
+
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [meta, setMeta] = useState<{
     page: number;
@@ -28,12 +52,25 @@ export default function Invoices() {
     hint?: "UNIT_NOT_FOUND" | "UNIT_NOT_IN_ANY_INVOICE";
   }>({ page: 1, totalPages: 1, total: 0, limit: 20 });
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search, 300);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
+
+  const setFilter = useCallback(
+    (patch: Record<string, string>) => {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          Object.entries(patch).forEach(([key, value]) => {
+            if (value) next.set(key, value);
+            else next.delete(key);
+          });
+          return next;
+        },
+        { replace: true },
+      );
+      setPage(1);
+    },
+    [setSearchParams],
+  );
 
   const fetchInvoices = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -43,6 +80,7 @@ export default function Invoices() {
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
       if (statusFilter) params.status = statusFilter;
+      if (cogsFilter) params.cogs = cogsFilter;
       const res = await api.get("/invoices", { params, signal });
       setInvoices(res.data.data ?? res.data);
       setMeta(res.data.meta ?? { page: 1, totalPages: 1, total: 0, limit: 20 });
@@ -51,7 +89,7 @@ export default function Invoices() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [page, debouncedSearch, dateFrom, dateTo, statusFilter]);
+  }, [page, debouncedSearch, dateFrom, dateTo, statusFilter, cogsFilter]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,38 +101,7 @@ export default function Invoices() {
     void fetchInvoices();
   }, ["invoice.created", "invoice.confirmed", "invoice.rejected", "invoice.delivery.scan", "invoice.delivered"]);
 
-  const fmt = (n: number) =>
-    n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  const columns = [
-    { key: "invoiceNumber", label: t.invoices.invoiceNumber, render: (r: Invoice) => <span style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{r.invoiceNumber}</span> },
-    { key: "customerName", label: t.invoices.customer, render: (r: Invoice) => r.customer?.name ?? "—" },
-    { key: "employeeName", label: t.invoices.employee, render: (r: Invoice) => r.employee?.name ?? "—" },
-    { key: "date", label: t.date, render: (r: Invoice) => new Date(r.date).toLocaleDateString() },
-    { key: "status", label: t.status, render: (r: Invoice) => <StatusChip status={r.status} /> },
-    {
-      key: "note",
-      label: t.newInvoice.note,
-      render: (r: Invoice) =>
-        r.note?.trim() ? (
-          <span
-            title={r.note}
-            style={{
-              display: "block",
-              maxWidth: 180,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {r.note}
-          </span>
-        ) : (
-          ""
-        ),
-    },
-    { key: "currentTotal", label: t.total, align: "right" as const, render: (r: Invoice) => <span style={{ fontVariantNumeric: "tabular-nums" }}>{t.currency} {fmt(r.currentTotal)}</span> },
-  ];
+  const columns = useInvoiceColumns();
 
   return (
     <div>
@@ -106,11 +113,12 @@ export default function Invoices() {
 
       <div className="toolbar">
         <div className="toolbar-grow">
-          <Input placeholder={t.invoices.searchPlaceholder} value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+          <Input placeholder={t.invoices.searchPlaceholder} value={search} onChange={(e) => setFilter({ search: e.target.value })} />
         </div>
-        <DateRangePicker from={dateFrom} to={dateTo} onChange={(f, t) => { setDateFrom(f); setDateTo(t); setPage(1); }} />
+        <DateRangePicker from={dateFrom} to={dateTo} onChange={(from, to) => setFilter({ dateFrom: from, dateTo: to })} />
         <div className="toolbar-fixed">
           <Select
+            aria-label={t.status}
             options={[
               { label: t.all, value: "" },
               { label: t.statusLabels.pendingReview, value: "PENDING_ACCOUNTANT" },
@@ -119,7 +127,18 @@ export default function Invoices() {
               { label: t.statusLabels.cancelled, value: "CANCELLED" },
             ]}
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            onChange={(e) => setFilter({ status: e.target.value })}
+          />
+        </div>
+        <div className="toolbar-fixed">
+          <Select
+            aria-label={t.dashboard.cogs}
+            options={[
+              { label: t.all, value: "" },
+              { label: t.dashboard.pendingCogsInvoices, value: "pending" },
+            ]}
+            value={cogsFilter}
+            onChange={(e) => setFilter({ cogs: e.target.value })}
           />
         </div>
       </div>
@@ -144,8 +163,8 @@ export default function Invoices() {
           <Table
             columns={columns}
             data={invoices}
-            onRowClick={(r) => navigate(`/admin/invoices/${(r as unknown as Invoice).id}`)}
-            keyExtractor={(r) => String((r as unknown as Invoice).id)}
+            getRowHref={(invoice) => `/admin/invoices/${invoice.id}`}
+            keyExtractor={(invoice) => String(invoice.id)}
           />
           <Pagination
             currentStart={(meta.page - 1) * meta.limit + 1}

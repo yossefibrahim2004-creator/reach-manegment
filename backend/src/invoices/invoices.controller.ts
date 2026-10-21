@@ -40,6 +40,11 @@ export class InvoicesController {
   @ApiQuery({ name: 'customerId', required: false })
   @ApiQuery({ name: 'employeeId', required: false })
   @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({
+    name: 'cogs',
+    required: false,
+    description: 'Filter by COGS state. Allowed: pending (invoices awaiting cost finalisation)',
+  })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   async findAll(
@@ -54,6 +59,7 @@ export class InvoicesController {
     @Query('customerId') customerId?: string,
     @Query('employeeId') employeeId?: string,
     @Query('status') status?: string,
+    @Query('cogs') cogs?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -61,6 +67,12 @@ export class InvoicesController {
       throw new BadRequestException({
         code: 'INVALID_STATUS',
         message: `Invalid status filter. Allowed: ${Object.values(InvoiceStatus).join(', ')}`,
+      });
+    }
+    if (cogs && cogs !== 'pending') {
+      throw new BadRequestException({
+        code: 'INVALID_COGS_FILTER',
+        message: 'Invalid cogs filter. Allowed: pending',
       });
     }
     return this.invoicesService.findAll({
@@ -75,6 +87,7 @@ export class InvoicesController {
       employeeId: employeeId ? parseInt(employeeId, 10) : undefined,
       requester: req.user,
       status: status as InvoiceStatus | undefined,
+      cogs: cogs === 'pending' ? 'pending' : undefined,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 25,
     });

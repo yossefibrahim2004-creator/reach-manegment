@@ -27,6 +27,7 @@ export function Pagination({
 
   return (
     <div
+      className="print-hidden"
       style={{
         display: "flex",
         alignItems: "center",

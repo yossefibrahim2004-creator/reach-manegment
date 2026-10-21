@@ -12,14 +12,19 @@ import { StatusChip } from "../../components/ui/StatusChip";
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { PageHeader } from "../../components/ui/PageHeader";
+import { Pagination } from "../../components/ui/Pagination";
 import { useI18n } from "../../i18n/context";
 import { useRealtimeRefresh } from "../../hooks/useRealtimeEvents";
 import type { StockReceipt, PaginatedResponse } from "../../types";
+
+const PAGE_SIZE = 25;
 
 export default function PendingPricingQueue() {
   const { t } = useI18n();
   const SUCCESS_MESSAGES = getSuccessMessages(t);
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
+  const [meta, setMeta] = useState({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [pricingId, setPricingId] = useState<number | null>(null);
   const [purchasePrice, setPurchasePrice] = useState("");
@@ -30,17 +35,18 @@ export default function PendingPricingQueue() {
     setLoading(true);
     try {
       const { data } = await api.get<PaginatedResponse<StockReceipt>>("/stock-receipts/pending-pricing", {
-        params: { limit: 50 },
+        params: { page, limit: PAGE_SIZE },
         signal,
       });
       setReceipts(data.data || []);
+      if (data.meta) setMeta(data.meta);
     } catch (err) {
       if (isAbortError(err)) return;
       setReceipts([]);
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -83,7 +89,12 @@ export default function PendingPricingQueue() {
       setPricingId(null);
       setPurchasePrice("");
       setPriceError("");
-      fetchReceipts();
+      // Pricing the last row of a page would leave an empty page behind.
+      if (receipts.length === 1 && page > 1) {
+        setPage((current) => Math.max(1, current - 1));
+      } else {
+        void fetchReceipts();
+      }
     } catch (err) {
       notify.error(getFriendlyErrorMessage(err, t));
     } finally {
@@ -190,6 +201,27 @@ export default function PendingPricingQueue() {
       <PageHeader
         title={t.pages.stockPricing}
         subtitle={t.pages.stockPricingSubtitle}
+        actions={
+          meta.total > 0 ? (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 12px",
+                borderRadius: "999px",
+                background: "var(--warning-bg)",
+                color: "var(--warning)",
+                fontFamily: "'Manrope', sans-serif",
+                fontSize: "13px",
+                fontWeight: 600,
+              }}
+            >
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{meta.total}</span>
+              {t.stockPricing.pendingReceipts}
+            </span>
+          ) : undefined
+        }
       />
 
       {loading ? (
@@ -208,11 +240,22 @@ export default function PendingPricingQueue() {
           }
         />
       ) : (
-        <Table
-          columns={columns}
-          data={receipts}
-          keyExtractor={(r) => String((r as unknown as StockReceipt).id)}
-        />
+        <>
+          <Table
+            columns={columns}
+            data={receipts}
+            keyExtractor={(r) => String((r as unknown as StockReceipt).id)}
+          />
+          <Pagination
+            currentStart={(meta.page - 1) * meta.limit + 1}
+            currentEnd={Math.min(meta.page * meta.limit, meta.total)}
+            total={meta.total}
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(meta.totalPages, current + 1))}
+          />
+        </>
       )}
     </div>
   );

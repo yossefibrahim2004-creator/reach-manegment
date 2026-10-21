@@ -4,6 +4,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { ProductUnitStatus, Prisma, InvoiceAuditAction, InvoiceStatus, Role } from '@prisma/client';
 import { normalizeQuantity, roundQuantity } from '../common/quantity.util';
+import { pendingCogsInvoicesWhere } from './invoice-queries';
 
 type InvoiceTransactionResult = {
   invoice: Prisma.InvoiceGetPayload<{}>;
@@ -869,10 +870,11 @@ export class InvoicesService {
     employeeId?: number;
     requester?: InvoiceRequester;
     status?: InvoiceStatus;
+    cogs?: 'pending';
     page?: number;
     limit?: number;
   }) {
-    const { search, number, barcode, customerId, employeeId, status, requester, page = 1, limit = 25 } = params;
+    const { search, number, barcode, customerId, employeeId, status, cogs, requester, page = 1, limit = 25 } = params;
     const skip = (page - 1) * limit;
     const from = params.from || params.dateFrom;
     const to = params.to || params.dateTo;
@@ -898,6 +900,10 @@ export class InvoicesService {
       baseWhere.status = { in: [InvoiceStatus.CONFIRMED, InvoiceStatus.DELIVERED] };
     }
 
+    // Kept in AND so an explicit status filter can never overwrite it.
+    const cogsFilter: Prisma.InvoiceWhereInput =
+      cogs === 'pending' ? { AND: [pendingCogsInvoicesWhere] } : {};
+
     const emptyResult = (hint?: 'UNIT_NOT_FOUND' | 'UNIT_NOT_IN_ANY_INVOICE') => ({
       data: [],
       meta: { page, limit, total: 0, totalPages: 0, ...(hint && { hint }) },
@@ -922,7 +928,7 @@ export class InvoicesService {
           return emptyResult('UNIT_NOT_IN_ANY_INVOICE');
         }
 
-        const where: Prisma.InvoiceWhereInput = { ...baseWhere, id: { in: invoiceIds } };
+        const where: Prisma.InvoiceWhereInput = { ...baseWhere, ...cogsFilter, id: { in: invoiceIds } };
 
         const [data, total] = await Promise.all([
           this.prisma.invoice.findMany({
@@ -953,6 +959,7 @@ export class InvoicesService {
 
     const where: Prisma.InvoiceWhereInput = {
       ...baseWhere,
+      ...cogsFilter,
       ...(numberTerm && { invoiceNumber: { contains: numberTerm, mode: 'insensitive' } }),
     };
 

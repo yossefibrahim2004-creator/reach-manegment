@@ -1,4 +1,5 @@
 import { InvoicesService } from './invoices.service';
+import { pendingCogsInvoicesWhere } from './invoice-queries';
 
 describe('InvoicesService', () => {
   it('calculates subtotal, percentage discount, fixed discount, and final total', () => {
@@ -302,5 +303,46 @@ describe('InvoicesService', () => {
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'INSUFFICIENT_STOCK' }),
     });
+  });
+
+  it('filters the invoice list with the shared pending-COGS specification', async () => {
+    const prisma = {
+      invoice: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      productUnit: { findUnique: jest.fn() },
+      invoiceItemUnitAssignment: { findMany: jest.fn() },
+    } as any;
+
+    const service = new InvoicesService(prisma, {} as any);
+
+    await service.findAll({ cogs: 'pending', page: 1, limit: 25 });
+
+    const listWhere = prisma.invoice.findMany.mock.calls[0][0].where;
+    const countWhere = prisma.invoice.count.mock.calls[0][0].where;
+
+    expect(listWhere.AND).toEqual([pendingCogsInvoicesWhere]);
+    expect(countWhere.AND).toEqual([pendingCogsInvoicesWhere]);
+  });
+
+  it('does not apply the pending-COGS specification without the filter', async () => {
+    const prisma = {
+      invoice: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      productUnit: { findUnique: jest.fn() },
+      invoiceItemUnitAssignment: { findMany: jest.fn() },
+    } as any;
+
+    const service = new InvoicesService(prisma, {} as any);
+
+    await service.findAll({ status: 'CONFIRMED', page: 1, limit: 25 });
+
+    const listWhere = prisma.invoice.findMany.mock.calls[0][0].where;
+
+    expect(listWhere.AND).toBeUndefined();
+    expect(listWhere.status).toBe('CONFIRMED');
   });
 });

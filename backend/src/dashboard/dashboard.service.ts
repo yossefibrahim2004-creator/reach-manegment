@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportsService } from '../reports/reports.service';
+import { pendingCogsInvoicesWhere } from '../invoices/invoice-queries';
+import { pendingPricingReceiptsWhere } from '../stock-receipts/stock-receipt-queries';
 
 @Injectable()
 export class DashboardService {
@@ -25,19 +27,24 @@ export class DashboardService {
       where: { status: 'CONFIRMED' },
     });
 
-    const pendingCogsInvoicesCount = await this.prisma.invoiceItem.groupBy({
-      by: ['invoiceId'],
-      where: {
-        invoice: { status: { in: ['CONFIRMED', 'DELIVERED'] } },
-        cogsStatus: 'PENDING',
-      },
+    // Same specification the invoice list uses for ?cogs=pending, so the
+    // dashboard badge always equals the number of rows on the target list.
+    const pendingCogsInvoicesCount = await this.prisma.invoice.count({
+      where: pendingCogsInvoicesWhere,
+    });
+
+    // The pricing queue is actionable on the Stock Pricing page, which lists
+    // stock receipts. Counting the same rows keeps badge == page total.
+    const pendingStockPricingCount = await this.prisma.stockReceipt.count({
+      where: pendingPricingReceiptsWhere,
     });
 
     return {
       ...baseSummary,
       pendingInvoiceReviewsCount,
       pendingDeliveriesCount,
-      pendingCogsInvoicesCount: pendingCogsInvoicesCount.length,
+      pendingCogsInvoicesCount,
+      pendingStockPricingCount,
     };
   }
 

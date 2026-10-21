@@ -206,6 +206,7 @@ const en = {
     cogs: "Cost of Goods Sold",
     monthlyNetProfit: "Monthly Net Profit",
     pendingCogsInvoices: "Invoices Pending Pricing",
+    pendingStockPricing: "Receipts Pending Pricing",
     pendingReviews: "Pending Reviews",
     pendingDeliveries: "Pending Deliveries",
     pendingChangeRequests: "Pending Change Requests",
@@ -218,6 +219,17 @@ const en = {
     reason: "Reason",
     refund: "Refund",
     failedToLoad: "Failed to load dashboard data",
+    updatedAt: "Last updated",
+    refresh: "Refresh",
+    refreshing: "Refreshing…",
+    attention: "Needs attention",
+    allClear: "Nothing is waiting on you right now",
+    margin: "Profit margin",
+    viewAllInvoices: "View all invoices",
+    viewAllReturns: "View all returns",
+    retry: "Try again",
+    refreshFailed:
+      "Couldn’t refresh. Showing figures from the last successful update.",
   },
 
   // KPI Cards
@@ -872,6 +884,7 @@ const en = {
     setPrice: "Set Price",
     noPendingPricing: "No pending pricing",
     allReceiptsPriced: "All receipts have been priced",
+    pendingReceipts: "receipts awaiting pricing",
   },
 
   // Stock Adjustments

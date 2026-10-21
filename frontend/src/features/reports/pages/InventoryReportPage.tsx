@@ -97,6 +97,9 @@ export default function InventoryReportPage() {
     {
   key: "type",
   label: "Serial",
+  // Redundant with `serialStatus` on paper — hiding it keeps the 11-column
+  // table readable without losing information.
+  printHidden: true,
   render: (row: InventoryReportRow) => (
     <span
       style={{
@@ -199,6 +202,7 @@ export default function InventoryReportPage() {
       render: (row: InventoryReportRow) =>
         row.lowStock ? (
           <span
+            className="print-badge"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -216,6 +220,7 @@ export default function InventoryReportPage() {
           </span>
         ) : (
           <span
+            className="print-badge"
             style={{
               display: "inline-flex",
               alignItems: "center",

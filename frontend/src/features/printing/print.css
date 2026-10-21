@@ -1,25 +1,30 @@
+/* ==========================================================================
+   PAGE SETUP — the single source of truth for paper size and margins.
+
+   Order matters: an unnamed @page applies to EVERY page (named ones included)
+   and, at equal specificity, the later rule wins. So the default page must be
+   declared first and named pages after it.
+   ========================================================================== */
+
+/* Invoices and disbursement vouchers: portrait A4 with a 4mm safe border. */
+@page {
+  size: A4;
+  margin: 4mm;
+}
+
+/* Reports: landscape A4 so wide financial tables fit without clipping.
+   12mm margins leave room for the page counter in the bottom margin. */
 @page report-landscape {
   size: A4 landscape;
   margin: 12mm;
 
   @bottom-center {
+    /* LTR, otherwise an RTL document prints "3 / 1" instead of "1 / 3". */
+    direction: ltr;
     content: counter(page) " / " counter(pages);
     color: #555;
     font-family: "Manrope", "Cairo", Arial, sans-serif;
-    font-size: 9pt;
-  }
-}
-
-/* Default @page is provided by PrintDocumentLayout (4mm margin) for invoices/vouchers.
-   Reports use the named 'report-landscape' page above. */
-  size: A4 landscape;
-  margin: 12mm;
-
-  @bottom-center {
-    content: counter(page) " / " counter(pages);
-    color: #555;
-    font-family: "Manrope", "Cairo", Arial, sans-serif;
-    font-size: 9pt;
+    font-size: 8pt;
   }
 }
 
@@ -657,6 +662,14 @@
   display: none;
 }
 
+/* The report header is paper-only: its band and context are hidden on screen,
+   so leaving the sheet itself visible paints an empty A4 box above the report. */
+@media screen {
+  .report-print-document {
+    display: none;
+  }
+}
+
 @media print {
   *,
   *::before,
@@ -676,7 +689,9 @@
   .print-document {
     page: auto;
     width: 100%;
-    min-height: 97vh;
+    /* Was 97vh: a "full page" minimum pushed the next block to a second
+       page (report header alone on page 1, invoice audit alone on page 2). */
+    min-height: 0;
     overflow: visible;
     color: var(--pn-ink, #1a1a1a);
     font-family: "Cairo", "Manrope", Arial, sans-serif;
@@ -703,9 +718,14 @@
   }
 
   .report-print-document {
+    /* The report header is a band + context strip, not a full sheet. */
+    min-height: 0;
     margin-bottom: 5mm;
     break-inside: avoid;
     page-break-inside: avoid;
+    /* Never leave the band orphaned at the bottom of a page. */
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .report-context {

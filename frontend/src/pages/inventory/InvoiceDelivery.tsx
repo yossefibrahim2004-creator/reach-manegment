@@ -9,6 +9,7 @@ import { Table } from "../../components/ui/Table";
 import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { PageHeader } from "../../components/ui/PageHeader";
+import { Pagination } from "../../components/ui/Pagination";
 import { Modal } from "../../components/ui/Modal";
 import { useI18n } from "../../i18n/context";
 import { useRealtimeRefresh } from "../../hooks/useRealtimeEvents";
@@ -48,11 +49,15 @@ interface DeliverySummary {
 /* Component                                                           */
 /* ------------------------------------------------------------------ */
 
+const PAGE_SIZE = 25;
+
 export default function InvoiceDelivery() {
   const { t } = useI18n();
   const SUCCESS_MESSAGES = getSuccessMessages(t);
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [meta, setMeta] = useState({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [delivering, setDelivering] = useState<number | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -83,14 +88,18 @@ export default function InvoiceDelivery() {
   const fetchInvoices = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const { data } = await api.get<PaginatedResponse<Invoice>>("/invoices/delivery-queue", { signal });
+      const { data } = await api.get<PaginatedResponse<Invoice>>("/invoices/delivery-queue", {
+        params: { page, limit: PAGE_SIZE },
+        signal,
+      });
       setInvoices(data.data || []);
+      if (data.meta) setMeta(data.meta);
     } catch (err) {
       if (isAbortError(err)) return;
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   const fetchInvoiceDelivery = useCallback(async (invoiceId: number) => {
     detailAbortRef.current?.abort();
@@ -190,7 +199,12 @@ export default function InvoiceDelivery() {
       setDeliverySummary((current) =>
         current ? { ...current, status: "DELIVERED" } : current,
       );
-      void fetchInvoices();
+      // Delivering the last row of a page would leave an empty page behind.
+      if (invoices.length === 1 && page > 1) {
+        setPage((current) => Math.max(1, current - 1));
+      } else {
+        void fetchInvoices();
+      }
       notify.success(SUCCESS_MESSAGES.invoice.delivered);
     } catch (err) {
       const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
@@ -354,11 +368,22 @@ export default function InvoiceDelivery() {
           }
         />
       ) : (
-        <Table
-          columns={columns}
-          data={invoices}
-          keyExtractor={(row) => String((row as unknown as Invoice).id)}
-        />
+        <>
+          <Table
+            columns={columns}
+            data={invoices}
+            keyExtractor={(row) => String((row as unknown as Invoice).id)}
+          />
+          <Pagination
+            currentStart={(meta.page - 1) * meta.limit + 1}
+            currentEnd={Math.min(meta.page * meta.limit, meta.total)}
+            total={meta.total}
+            currentPage={meta.page}
+            totalPages={meta.totalPages}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(meta.totalPages, current + 1))}
+          />
+        </>
       )}
 
       {/* ------------------------- Detail modal ------------------------- */}

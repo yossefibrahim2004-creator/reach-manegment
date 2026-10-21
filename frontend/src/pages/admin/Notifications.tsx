@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../lib/api";
 import { isAbortError } from "../../hooks";
 import { notify } from "../../lib/notify";
@@ -26,7 +27,10 @@ interface ListMeta {
 export default function Notifications() {
   const { t } = useI18n();
   const SUCCESS_MESSAGES = getSuccessMessages(t);
-  const [tab, setTab] = useState<Tab>("unread");
+  // The active tab is URL-driven so the dashboard's "Unread Notifications"
+  // queue can deep-link the unread list (?tab=unread) and stay in sync.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: Tab = searchParams.get("tab") === "all" ? "all" : "unread";
   const [page, setPage] = useState(1);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [meta, setMeta] = useState<ListMeta>({ page: 1, total: 0, totalPages: 1 });
@@ -79,7 +83,14 @@ export default function Notifications() {
 
   const switchTab = (next: Tab) => {
     if (next === tab) return;
-    setTab(next);
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        params.set("tab", next);
+        return params;
+      },
+      { replace: true },
+    );
     setPage(1);
   };
 

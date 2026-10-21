@@ -4,6 +4,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { Prisma, ProductUnitStatus, StockReceiptStatus, Role } from '@prisma/client';
 import { normalizeQuantity } from '../common/quantity.util';
+import { pendingPricingReceiptsWhere } from './stock-receipt-queries';
 
 @Injectable()
 export class StockReceiptsService {
@@ -400,7 +401,8 @@ export class StockReceiptsService {
   async findPendingPricing(page = 1, limit = 25) {
     const skip = (page - 1) * limit;
 
-    const where: Prisma.StockReceiptWhereInput = { status: StockReceiptStatus.PENDING_PRICING };
+    // Shared with the dashboard badge so both report the same number.
+    const where: Prisma.StockReceiptWhereInput = pendingPricingReceiptsWhere;
 
     const [data, total] = await Promise.all([
       this.prisma.stockReceipt.findMany({

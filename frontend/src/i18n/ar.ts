@@ -206,6 +206,7 @@ const ar = {
     cogs: "تكلفة البضاعة المباعة",
     monthlyNetProfit: "صافي الربح الشهري",
     pendingCogsInvoices: "فواتير بانتظار التسعير",
+    pendingStockPricing: "إيصالات بانتظار التسعير",
     pendingReviews: "بانتظار المراجعة",
     pendingDeliveries: "بانتظار التسليم",
     pendingChangeRequests: "طلبات التعديل المعلقة",
@@ -218,6 +219,17 @@ const ar = {
     reason: "السبب",
     refund: "المبلغ المسترد",
     failedToLoad: "فشل تحميل بيانات لوحة التحكم",
+    updatedAt: "آخر تحديث",
+    refresh: "تحديث",
+    refreshing: "جاري التحديث…",
+    attention: "تحتاج إلى متابعة",
+    allClear: "لا توجد عناصر معلقة حاليًا",
+    margin: "هامش الربح",
+    viewAllInvoices: "عرض كل الفواتير",
+    viewAllReturns: "عرض كل المرتجعات",
+    retry: "إعادة المحاولة",
+    refreshFailed:
+      "تعذّر تحديث البيانات. الأرقام المعروضة من آخر تحديث ناجح.",
   },
 
   // KPI Cards
@@ -872,6 +884,7 @@ const ar = {
     setPrice: "تعيين السعر",
     noPendingPricing: "لا يوجد تسعير معلق",
     allReceiptsPriced: "تم تسعير جميع الإيصالات",
+    pendingReceipts: "إيصالات بانتظار التسعير",
   },
 
   // Stock Adjustments

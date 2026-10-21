@@ -23,7 +23,7 @@ export class InvoiceDeliveryController {
   }
 
   @Post(':id/delivery/scan')
-  @Roles(Role.INVENTORY)
+  @Roles(Role.INVENTORY, Role.ADMIN)
   @ApiOperation({ summary: 'Scan a serialized unit barcode for delivery' })
   async scanBarcode(
     @Request() req: RequestWithUser,
@@ -34,7 +34,7 @@ export class InvoiceDeliveryController {
   }
 
   @Delete(':id/delivery/scan/:productUnitId')
-  @Roles(Role.INVENTORY)
+  @Roles(Role.INVENTORY, Role.ADMIN)
   @ApiOperation({ summary: 'Unscan (reverse) a previously scanned unit before delivery' })
   async unscanBarcode(
     @Request() req: RequestWithUser,
@@ -45,7 +45,7 @@ export class InvoiceDeliveryController {
   }
 
   @Patch(':id/deliver')
-  @Roles(Role.INVENTORY)
+  @Roles(Role.INVENTORY, Role.ADMIN)
   @ApiOperation({ summary: 'Mark invoice as delivered (requires all serialized lines fully scanned)' })
   async deliverInvoice(
     @Request() req: RequestWithUser,

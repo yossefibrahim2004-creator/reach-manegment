@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../lib/api";
 import { isAbortError } from "../../hooks";
 import { notify } from "../../lib/notify";
@@ -16,12 +17,30 @@ import { LoadingSpinner } from "../../components/ui/LoadingSpinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import type { InvoiceChangeRequest } from "../../types";
 
+const STATUS_FILTERS = ["PENDING", "APPROVED", "REJECTED"] as const;
+
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+const isStatusFilter = (value: string): value is StatusFilter =>
+  (STATUS_FILTERS as readonly string[]).includes(value);
+
 export default function ChangeRequests() {
   const { t } = useI18n();
   const SUCCESS_MESSAGES = getSuccessMessages(t);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The status filter is URL-driven: the dashboard's "Pending Change Requests"
+  // queue links to ?status=PENDING and the list must match that count.
+  const rawStatus = searchParams.get("status");
+  const statusFilter: StatusFilter | "" =
+    rawStatus === null
+      ? "PENDING"
+      : rawStatus === ""
+        ? ""
+        : isStatusFilter(rawStatus)
+          ? rawStatus
+          : "PENDING";
   const [requests, setRequests] = useState<InvoiceChangeRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("PENDING");
   const [selected, setSelected] = useState<InvoiceChangeRequest | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -29,6 +48,20 @@ export default function ChangeRequests() {
   const [rejectReason, setRejectReason] = useState("");
   const [rejectReasonError, setRejectReasonError] = useState("");
   const [processing, setProcessing] = useState(false);
+
+  const changeStatusFilter = (value: string) => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        // Keep an explicit empty value so "All" survives a reload instead of
+        // falling back to the PENDING default.
+        next.set("status", value);
+        return next;
+      },
+      { replace: true },
+    );
+    setSelected(null);
+  };
 
   const fetchRequests = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -132,7 +165,7 @@ export default function ChangeRequests() {
               { label: t.all, value: "" },
             ]}
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setSelected(null); }}
+            onChange={(e) => changeStatusFilter(e.target.value)}
           />
         </div>
       </div>

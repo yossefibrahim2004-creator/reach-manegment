@@ -503,13 +503,27 @@ export default function RevenueReportPage() {
     <div>
       <style>{`
         @media print {
-          .print-break {
-            page-break-before: always;
+          /* Keep the daily-summary section together, but let it flow after the
+             invoice table instead of forcing a fresh sheet: a forced break
+             produced a blank page when the table ended at a page boundary. */
+          .print-keep {
+            break-inside: avoid;
+            page-break-inside: avoid;
           }
 
-          .report-card {
-            break-inside: avoid;
+          /* A bordered card that spans pages paints its bottom border on a
+             sheet of its own. The table cells already draw the frame, so the
+             card chrome is dropped on paper. */
+          .print-area .report-card {
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
           }
+
+          /* Do NOT set break-inside: avoid on .report-card: a card that wraps
+             a long table is taller than a page, and forcing it to stay whole
+             pushes short tables to the next page and leaves a blank gap. */
         }
       `}</style>
 
@@ -797,7 +811,7 @@ export default function RevenueReportPage() {
             Summary table
             ================================================================ */}
         {data?.byDay && data.byDay.length > 0 && (
-          <div className="print-break">
+          <div className="print-keep">
             <SectionTitle
               title={t.reports.daily}
               subtitle={t.reports.netSales}

@@ -1,6 +1,11 @@
 
 import React from "react";
+import { Link } from "react-router-dom";
 import { useI18n } from "../../i18n/context";
+import {
+  hasActiveTextSelection,
+  shouldNavigateRow,
+} from "./tableRowNavigation";
 
 export interface Column<T = unknown> {
   key: string;
@@ -9,6 +14,8 @@ export interface Column<T = unknown> {
   width?: string | number;
   truncate?: boolean;
   sortable?: boolean;
+  /** Hide this column on paper only — useful for redundant/low-value columns. */
+  printHidden?: boolean;
   render?: (row: T, index: number) => React.ReactNode;
 }
 
@@ -18,6 +25,13 @@ export interface TableProps<T = unknown> {
   loading?: boolean;
   loadingRowsCount?: number;
   onRowClick?: (row: T, index: number) => void;
+  /**
+   * Optional href for a row. When provided, the first (primary) cell renders a
+   * real link and the whole row activates that same link on click / Enter, so
+   * middle-click, Ctrl/Cmd-click, "open in new tab", copy-link and screen
+   * readers all behave like a normal anchor. Existing tables are unaffected.
+   */
+  getRowHref?: (row: T, index: number) => string | undefined;
   emptyMessage?: string;
   emptySubtext?: string;
   emptyIcon?: React.ReactNode;
@@ -50,6 +64,7 @@ export function Table<T = unknown>({
   loading = false,
   loadingRowsCount = 5,
   onRowClick,
+  getRowHref,
   emptyMessage,
   emptySubtext,
   emptyIcon,
@@ -315,6 +330,23 @@ export function Table<T = unknown>({
           outline-offset: -2px;
         }
 
+        .ui-table-row-link {
+          color: inherit;
+          text-decoration: none;
+          border-radius: 3px;
+        }
+
+        .ui-table-row-link:hover {
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+
+        .ui-table-row-link:focus-visible {
+          outline:
+            2px solid var(--ui-brand);
+          outline-offset: 2px;
+        }
+
         .ui-table-tr-selected
           .ui-table-td {
           background: var(--ui-selected);
@@ -488,8 +520,9 @@ export function Table<T = unknown>({
             background: #ffffff;
             color: #000000;
             font-family:
+              "Cairo",
+              "Manrope",
               Arial,
-              Helvetica,
               sans-serif;
             font-size: 9pt;
             line-height: 1.25;
@@ -536,7 +569,8 @@ export function Table<T = unknown>({
             line-height: 1.15;
             letter-spacing: 0.02em;
             text-transform: uppercase;
-            white-space: nowrap;
+            /* Wrap instead of forcing the table wider than the paper. */
+            white-space: normal;
             vertical-align: middle;
           }
 
@@ -546,6 +580,7 @@ export function Table<T = unknown>({
             line-height: 1.25;
             vertical-align: middle;
             white-space: normal;
+            overflow-wrap: anywhere;
           }
 
           .ui-table-cell-content {
@@ -571,6 +606,11 @@ export function Table<T = unknown>({
           .ui-table-sort-icon,
           .ui-table-sort-button {
             cursor: default;
+          }
+
+          .ui-table-row-link {
+            color: #000000 !important;
+            text-decoration: none !important;
           }
 
           .ui-table-sort-icon {
@@ -860,6 +900,7 @@ export function Table<T = unknown>({
             {columns.map((column) => (
               <col
                 key={column.key}
+                className={column.printHidden ? "print-hidden" : undefined}
                 style={{
                   width: column.width || "auto",
                 }}
@@ -885,7 +926,7 @@ export function Table<T = unknown>({
                       column.sortable
                         ? "ui-table-th-sortable"
                         : ""
-                    }`}
+                    } ${column.printHidden ? "print-hidden" : ""}`}
                     style={{
                       padding,
                       textAlign,
@@ -969,7 +1010,7 @@ export function Table<T = unknown>({
                     ) => (
                       <td
                         key={`skeleton-cell-${column.key}-${columnIndex}`}
-                        className="ui-table-td"
+                        className={`ui-table-td ${column.printHidden ? "print-hidden" : ""}`}
                         style={{
                           width:
                             column.width,
@@ -1018,6 +1059,14 @@ export function Table<T = unknown>({
                     rowIndex,
                   );
 
+                const rowHref = getRowHref?.(
+                  row,
+                  rowIndex,
+                );
+
+                const isNavigable =
+                  Boolean(rowHref);
+
                 const isSelected =
                   selectedRowKey !==
                     null &&
@@ -1029,26 +1078,67 @@ export function Table<T = unknown>({
                     );
 
                 const isClickable =
-                  Boolean(onRowClick);
+                  Boolean(onRowClick) ||
+                  isNavigable;
+
+                // Activation always goes through the real link in the primary
+                // cell, so the row behaves exactly like clicking that link.
+                const activateRowLink = (
+                  rowElement: HTMLTableRowElement,
+                ) => {
+                  rowElement
+                    .querySelector<HTMLAnchorElement>(
+                      "a.ui-table-row-link",
+                    )
+                    ?.click();
+                };
 
                 return (
                   <tr
                     key={rowKey}
-                    onClick={() =>
+                    onClick={(event) => {
+                      if (!isClickable) {
+                        return;
+                      }
+
+                      if (isNavigable) {
+                        if (
+                          !shouldNavigateRow(
+                            event,
+                            {
+                              hasActiveTextSelection:
+                                hasActiveTextSelection(),
+                              row: event.currentTarget,
+                            },
+                          )
+                        ) {
+                          return;
+                        }
+
+                        activateRowLink(
+                          event.currentTarget,
+                        );
+
+                        return;
+                      }
+
                       onRowClick?.(
                         row,
                         rowIndex,
-                      )
-                    }
+                      );
+                    }}
                     tabIndex={
-                      isClickable
+                      isClickable &&
+                      !isNavigable
                         ? 0
                         : undefined
                     }
                     role={
-                      isClickable
-                        ? "button"
-                        : undefined
+                      isNavigable
+                        ? undefined
+                        : isClickable
+                          ? "button"
+                          : undefined
                     }
                     aria-selected={
                       isClickable
@@ -1056,8 +1146,17 @@ export function Table<T = unknown>({
                         : undefined
                     }
                     onKeyDown={
-                      isClickable
+                      isClickable &&
+                      !isNavigable
                         ? (event) => {
+                            // Controls inside the row own their keyboard behaviour.
+                            if (
+                              event.target !==
+                              event.currentTarget
+                            ) {
+                              return;
+                            }
+
                             if (
                               event.key ===
                                 "Enter" ||
@@ -1085,7 +1184,10 @@ export function Table<T = unknown>({
                     }`}
                   >
                     {columns.map(
-                      (column) => {
+                      (
+                        column,
+                        columnIndex,
+                      ) => {
                         const {
                           textAlign,
                           justifyContent,
@@ -1094,10 +1196,17 @@ export function Table<T = unknown>({
                             column.align,
                           );
 
+                        const cellValue =
+                          renderColumnValue(
+                            row,
+                            column,
+                            rowIndex,
+                          );
+
                         return (
                           <td
                             key={column.key}
-                            className="ui-table-td"
+                            className={`ui-table-td ${column.printHidden ? "print-hidden" : ""}`}
                             style={{
                               padding,
                               textAlign,
@@ -1124,10 +1233,20 @@ export function Table<T = unknown>({
                                     : ""
                                 }`}
                               >
-                                {renderColumnValue(
-                                  row,
-                                  column,
-                                  rowIndex,
+                                {rowHref &&
+                                columnIndex ===
+                                  0 ? (
+                                  <Link
+                                    className="ui-table-row-link"
+                                    to={rowHref}
+                                    onClick={(event) =>
+                                      event.stopPropagation()
+                                    }
+                                  >
+                                    {cellValue}
+                                  </Link>
+                                ) : (
+                                  cellValue
                                 )}
                               </span>
                             </div>

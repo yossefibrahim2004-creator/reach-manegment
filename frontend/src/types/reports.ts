@@ -27,6 +27,7 @@ export interface DashboardSummaryResponse {
   pendingInvoiceReviewsCount?: number;
   pendingDeliveriesCount?: number;
   pendingCogsInvoicesCount?: number;
+  pendingStockPricingCount?: number;
   unreadNotificationsCount: number;
   range: { from: string; to: string };
 }

@@ -109,9 +109,12 @@ const VOUCHER_CSS = `
   align-items: stretch;
   justify-content: space-between;
   gap: 5mm;
-  margin-block-start: 6mm;
+  margin-block-start: 4mm;
   break-inside: avoid;
   page-break-inside: avoid;
+  /* Never start a fresh sheet with only the signature block. */
+  break-before: avoid;
+  page-break-before: avoid;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -144,10 +147,10 @@ const VOUCHER_CSS = `
 
 .disbursement-voucher .disbursement-voucher__signature h3 {
   margin: 0;
-  padding: 1.6mm 2mm;
+  padding: 1.2mm 2mm;
   background: var(--pd-navy);
   color: #fff;
-  font-size: 9.5pt;
+  font-size: 9pt;
   font-weight: 800;
   text-align: center;
   -webkit-print-color-adjust: exact;
@@ -157,15 +160,15 @@ const VOUCHER_CSS = `
 .disbursement-voucher .disbursement-voucher__signature-body {
   display: flex;
   flex-direction: column;
-  gap: 1mm;
-  padding: 2mm 3mm 3mm;
+  gap: 0.6mm;
+  padding: 1.5mm 3mm 2mm;
 }
 
 .disbursement-voucher .disbursement-voucher__field {
   display: flex;
   align-items: flex-end;
   gap: 2mm;
-  min-height: 8mm;
+  min-height: 7mm;
   font-size: 8.5pt;
   font-weight: 700;
   color: var(--pd-navy);
@@ -175,7 +178,7 @@ const VOUCHER_CSS = `
   flex: 1;
   min-width: 0;
   border-bottom: 0.3mm solid var(--pd-ink);
-  height: 6mm;
+  height: 5mm;
 }
 
 .disbursement-voucher .disbursement-voucher__field--signature {
@@ -185,7 +188,7 @@ const VOUCHER_CSS = `
 }
 
 .disbursement-voucher .disbursement-voucher__field--signature .disbursement-voucher__field-line {
-  height: 16mm;
+  height: 13mm;
   flex: none;
 }
 

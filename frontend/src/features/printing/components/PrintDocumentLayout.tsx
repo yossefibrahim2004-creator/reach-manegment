@@ -23,9 +23,9 @@ interface PrintDocumentLayoutProps {
  * A4 print sheet with the curved navy/blue header band.
  *
  * Print safe area: a 4mm blank border on every side of every page
- * (single @page rule below — the ONLY place margins are defined, so every
- * document that uses this layout prints with the same margin). This keeps
- * ink away from the physical edge so a small printer feed/offset defect
+ * (@page rule in print.css — the single source of truth for paper setup, so
+ * every document that uses this layout prints with the same margin). This
+ * keeps ink away from the physical edge so a small printer feed/offset defect
  * never cuts the document.
  *
  * Band geometry (viewBox 0 0 1000 210, LTR):
@@ -239,6 +239,7 @@ const PRINT_DOCUMENT_CSS = `
 .print-document__content {
   flex: 1 1 auto;
   padding: 6mm var(--pd-pad-x) 6mm;
+  display: none !important;
 }
 
 .print-document__footer {
@@ -507,14 +508,9 @@ const PRINT_DOCUMENT_CSS = `
 }
 
 /* ==========================================================================
-   Print — 4mm blank safe margin on ALL sides of ALL pages
-   (the only @page rule in the print system)
+   Print — page size and the 4mm safe margin live in print.css (@page).
+   Keeping a second @page rule here would override the report landscape page.
    ========================================================================== */
-
-@page {
-  size: A4;
-  margin: 4mm;
-}
 
 @media print {
   html,

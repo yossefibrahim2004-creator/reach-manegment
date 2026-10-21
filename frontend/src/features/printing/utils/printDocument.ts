@@ -1,27 +1,34 @@
-function waitForImage(image: HTMLImageElement): Promise<void> {
-  if (image.complete) {
-    return image.naturalWidth > 0
-      ? Promise.resolve()
-      : Promise.reject(new Error("A print document image failed to load."));
+async function waitForImage(image: HTMLImageElement): Promise<void> {
+  if (!image.complete) {
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        image.removeEventListener("load", onLoad);
+        image.removeEventListener("error", onError);
+      };
+      const onLoad = () => {
+        cleanup();
+        resolve();
+      };
+      const onError = () => {
+        cleanup();
+        reject(new Error("A print document image failed to load."));
+      };
+
+      image.addEventListener("load", onLoad, { once: true });
+      image.addEventListener("error", onError, { once: true });
+    });
   }
 
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      image.removeEventListener("load", onLoad);
-      image.removeEventListener("error", onError);
-    };
-    const onLoad = () => {
-      cleanup();
-      resolve();
-    };
-    const onError = () => {
-      cleanup();
-      reject(new Error("A print document image failed to load."));
-    };
+  if (image.naturalWidth === 0) {
+    throw new Error("A print document image failed to load.");
+  }
 
-    image.addEventListener("load", onLoad, { once: true });
-    image.addEventListener("error", onError, { once: true });
-  });
+  // decode() guarantees the bitmap is ready before the print dialog snapshots
+  // the page. Some browsers reject decode() for already-painted images, which
+  // is harmless here because the image is loaded (naturalWidth > 0).
+  if (typeof image.decode === "function") {
+    await image.decode().catch(() => undefined);
+  }
 }
 
 export async function prepareAndPrint(): Promise<void> {
